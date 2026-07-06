@@ -6,6 +6,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Display name is **AutoQA Studio**. The repo directory (`testgen-ai`), default SQLite filename (`data/testgen.db`), and the FastAPI module path (`backend.main:app`) deliberately keep the legacy `testgen` name — do not rename them.
 
+## Commit conventions
+
+Do **not** add a `Co-Authored-By: Claude` (or any AI co-author) trailer to commit messages. Commits are attributed solely to the repository owner.
+
 ## Commands
 
 ```bash
