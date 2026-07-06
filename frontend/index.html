@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AutoQA Studio</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <meta name="theme-color" content="#1856FF" />
+  <link rel="stylesheet" href="/styles-tailwind.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+  <!-- Glassmorphism (typeui.sh) — Plus Jakarta Sans body+display, JetBrains Mono code -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body class="min-h-screen flex flex-col" style="background:var(--bg-page);color:var(--text-primary);">
+  <!-- Loading overlay -->
+  <div id="loadingOverlay" class="hidden fixed inset-0 z-[100] flex items-center justify-center" style="background:var(--bg-overlay);" aria-live="polite" aria-busy="false">
+    <div class="rounded-xl p-6 max-w-sm text-center shadow-xl" style="background:var(--bg-surface);border:1px solid var(--border-default);">
+      <div class="inline-block h-8 w-8 border-2 rounded-full animate-spin mb-3" style="border-color:var(--accent);border-top-color:transparent;"></div>
+      <div id="loadingMessage" class="text-sm" style="color:var(--text-secondary);">Working…</div>
+      <div id="loadingElapsed" class="text-xs mt-2" style="color:var(--text-muted);"></div>
+      <button type="button" id="btnCancelRequest" class="mt-4 text-xs text-amber-600 hover:underline">Cancel</button>
+    </div>
+  </div>
+
+  <!-- Auth overlay -->
+  <section id="authSection" class="hidden fixed inset-0 z-[90] flex items-center justify-center p-4" style="background:var(--bg-header);">
+    <div class="rounded-xl p-6 max-w-md w-full shadow-lg border border-amber-300" style="background:var(--bg-surface);">
+      <h2 class="text-lg font-semibold text-amber-700 mb-3">Sign in</h2>
+      <p class="text-xs mb-3" style="color:var(--text-tertiary);">Set <code style="color:var(--text-secondary);">AUTH_DISABLED=true</code> in .env to skip login for local dev.</p>
+      <label class="text-xs" style="color:var(--text-tertiary);">Email</label>
+      <input id="authEmail" type="email" class="w-full mt-1 rounded px-3 py-2 text-sm" style="background:var(--bg-input);border:1px solid var(--border-input);color:var(--text-primary);" />
+      <label class="text-xs mt-2 block" style="color:var(--text-tertiary);">Password</label>
+      <input id="authPassword" type="password" class="w-full mt-1 rounded px-3 py-2 text-sm" style="background:var(--bg-input);border:1px solid var(--border-input);color:var(--text-primary);" />
+      <div class="flex gap-2 mt-3">
+        <button type="button" id="btnRegister" class="px-3 py-1.5 rounded text-sm" style="background:var(--btn-neutral);color:var(--btn-neutral-text);">Register</button>
+        <button type="button" id="btnLogin" class="px-3 py-1.5 rounded text-sm" style="background:var(--accent);color:var(--text-on-accent);">Login</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Create / Edit Project modal -->
+  <div id="projectModal" class="hidden fixed inset-0 z-[80] flex items-center justify-center p-4 backdrop-blur-sm" style="background:var(--bg-overlay);">
+    <div class="rounded-xl max-w-lg w-full shadow-2xl" style="background:var(--bg-surface);border:1px solid var(--border-default);">
+      <div class="flex items-center justify-between px-4 py-3" style="border-bottom:1px solid var(--border-default);">
+        <h2 id="projectModalTitle" class="text-lg font-semibold">New Project</h2>
+        <button type="button" id="btnCloseProjectModal" class="text-2xl leading-none" style="color:var(--text-muted);">&times;</button>
+      </div>
+      <div class="p-4 space-y-4">
+        <div>
+          <label class="text-xs" style="color:var(--text-tertiary);" for="projectModalName">Project Name</label>
+          <input id="projectModalName" type="text" class="w-full mt-1 rounded px-3 py-2 text-sm" style="background:var(--bg-input);border:1px solid var(--border-input);color:var(--text-primary);" placeholder="My Project" />
+        </div>
+        <div id="projectModalDescWrap">
+          <label class="text-xs" style="color:var(--text-tertiary);" for="projectModalDesc">Project Description</label>
+          <textarea id="projectModalDesc" rows="4" class="w-full mt-1 rounded px-3 py-2 text-sm leading-relaxed" style="background:var(--bg-input);border:1px solid var(--border-input);color:var(--text-primary);" placeholder="Describe the product, domain, roles, and rules. This will be used as context for AI test case generation."></textarea>
+        </div>
+        <input type="hidden" id="projectModalEditId" value="" />
+        <div class="flex justify-end gap-2">
+          <button type="button" id="btnProjectModalCancel" class="px-4 py-2 rounded text-sm" style="background:var(--btn-neutral);color:var(--btn-neutral-text);">Cancel</button>
+          <button type="button" id="btnProjectModalSave" class="px-4 py-2 rounded text-sm font-medium" style="background:var(--accent);color:var(--text-on-accent);">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Generate test cases modal -->
+  <div id="generateModal" class="hidden fixed inset-0 z-[80] flex items-center justify-center p-4 backdrop-blur-sm overflow-y-auto" style="background:var(--bg-overlay);">
+    <div class="rounded-xl max-w-3xl w-full shadow-2xl my-8 max-h-[90vh] overflow-y-auto" style="background:var(--bg-surface);border:1px solid var(--border-default);">
+      <div class="flex items-center justify-between px-4 py-3 sticky top-0 z-10" style="border-bottom:1px solid var(--border-default);background:var(--bg-surface);">
+        <h2 class="text-lg font-semibold">Generate Test Cases</h2>
+        <button type="button" id="btnCloseGenerateModal" class="text-2xl leading-none" style="color:var(--text-muted);">&times;</button>
+      </div>
+      <div class="p-4 space-y-4">
+        <p class="text-sm" style="color:var(--text-tertiary);">Feature: <span id="genModalFeatureName" class="font-medium" style="color:var(--accent-text);"></span></p>
+        <input type="hidden" id="genModalFeatureId" value="" />
+        <details id="genAdvancedLlm" class="adv-llm-details rounded-lg" style="border:1px solid var(--border-default);">
+          <summary class="cursor-pointer text-sm px-3 py-2 list-none flex items-center gap-2" style="color:var(--text-tertiary);">
+            <span class="adv-chevron-closed inline-flex items-center" style="color:var(--text-muted);" aria-hidden="true"><svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg></span>
+            <span class="adv-chevron-open inline-flex items-center" style="color:var(--text-muted);" aria-hidden="true"><svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg></span>
+            Advanced — LLM overrides
+          </summary>
+          <div class="px-3 pb-3 pt-1 grid sm:grid-cols-2 gap-3">
+            <div>
+              <label class="text-xs" style="color:var(--text-tertiary);">Provider</label>
+              <select id="genLlmProvider" class="w-full mt-1 rounded px-3 py-2 text-sm" style="background:var(--bg-input);border:1px solid var(--border-input);color:var(--text-primary);">
+                <option value="" selected>Default (.env / auto)</option>
+                <option value="openai">OpenAI</option>
+                <option value="anthropic">Anthropic</option>
+                <option value="gemini">Gemini</option>
+              </select>
+            </div>
+            <div>
+              <label class="text-xs" style="color:var(--text-tertiary);">Model (optional)</label>
+              <input id="genLlmModel" type="text" class="w-full mt-1 rounded px-3 py-2 text-sm" style="background:var(--bg-input);border:1px solid var(--border-input);color:var(--text-primary);" placeholder="e.g. gpt-4o-mini" />
+            </div>
+          </div>
+        </details>
+        <div id="genParserLoadError" class="hidden text-sm text-red-600 rounded-lg p-3 whitespace-pre-wrap" style="border:1px solid var(--border-default);background:var(--status-high-bg);"></div>
+        <div class="grid md:grid-cols-2 gap-4">
+          <div>
+            <label class="text-xs" style="color:var(--text-tertiary);">Min. new test cases (optional)</label>
+            <input id="genMinTestCases" type="number" min="1" placeholder="e.g. 5" class="w-full mt-1 rounded px-3 py-2 text-sm" style="background:var(--bg-input);border:1px solid var(--border-input);color:var(--text-primary);" />
+          </div>
+          <div>
+            <label class="text-xs" style="color:var(--text-tertiary);">Preferred types (comma-separated)</label>
+            <div id="genPreferredTypes"></div>
+          </div>
+        </div>
+        <label class="flex items-start gap-2 text-sm cursor-pointer" style="color:var(--text-secondary);">
+          <input type="checkbox" id="genMultiInputMode" class="mt-1 shrink-0" />
+          <span><strong style="color:var(--text-primary);">Combine multiple sources</strong> — merge text, Jira, Figma, and/or screenshots into one generation.</span>
+        </label>
+        <div id="genSingleInputWrap">
+          <div id="genParserTabs" class="flex flex-wrap gap-2 mb-4 pb-3" style="border-bottom:1px solid var(--border-default);"></div>
+          <div id="genParserForms" class="space-y-4"></div>
+        </div>
+        <div id="genMultiInputWrap" class="hidden space-y-4">
+          <p class="text-xs" style="color:var(--text-tertiary);">Configure each source below.</p>
+          <div id="genMultiInputBlocks" class="space-y-4"></div>
+          <button type="button" id="genBtnAddMultiBlock" class="text-sm px-3 py-1.5 rounded" style="background:var(--btn-neutral);color:var(--btn-neutral-text);border:1px solid var(--border-input);">Add another source</button>
+        </div>
+        <button type="button" id="btnGenerateSubmit" class="w-full sm:w-auto px-6 py-2.5 rounded text-sm font-medium disabled:opacity-40" style="background:var(--accent);color:var(--text-on-accent);" disabled>Generate test cases</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Iterate test cases modal -->
+  <div id="iterateModal" class="hidden fixed inset-0 z-[80] flex items-center justify-center p-4 backdrop-blur-sm overflow-y-auto" style="background:var(--bg-overlay);">
+    <div class="rounded-xl max-w-2xl w-full shadow-2xl my-8" style="background:var(--bg-surface);border:1px solid var(--border-default);">
+      <div class="flex items-center justify-between px-4 py-3" style="border-bottom:1px solid var(--border-default);">
+        <h2 class="text-lg font-semibold">Iterate Test Cases</h2>
+        <button type="button" id="btnCloseIterateModal" class="text-2xl leading-none" style="color:var(--text-muted);">&times;</button>
+      </div>
+      <div class="p-4 space-y-4">
+        <p class="text-sm" style="color:var(--text-tertiary);">Feature: <span id="iterModalFeatureName" class="font-medium" style="color:var(--accent-text);"></span></p>
+        <input type="hidden" id="iterModalFeatureId" value="" />
+        <div>
+          <label class="text-xs" style="color:var(--text-tertiary);">Instruction</label>
+          <textarea id="iterInstruction" rows="3" placeholder="e.g. Add more edge cases for validation" class="w-full mt-1 rounded px-3 py-2 text-sm" style="background:var(--bg-input);border:1px solid var(--border-input);color:var(--text-primary);"></textarea>
+        </div>
+        <div class="grid md:grid-cols-2 gap-3">
+          <div>
+            <label class="text-xs" style="color:var(--text-tertiary);">Min. new cases (optional)</label>
+            <input id="iterMinCases" type="number" min="1" class="w-full mt-1 rounded px-3 py-2 text-sm" style="background:var(--bg-input);border:1px solid var(--border-input);color:var(--text-primary);" />
+          </div>
+          <div>
+            <label class="text-xs" style="color:var(--text-tertiary);">Preferred types (comma, optional)</label>
+            <div id="iterPreferredTypes"></div>
+          </div>
+        </div>
+        <details id="iterAdvancedLlm" class="adv-llm-details rounded-lg" style="border:1px solid var(--border-default);">
+          <summary class="cursor-pointer text-sm px-3 py-2 list-none flex items-center gap-2" style="color:var(--text-tertiary);">
+            <span class="adv-chevron-closed inline-flex items-center" style="color:var(--text-muted);" aria-hidden="true"><svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg></span>
+            <span class="adv-chevron-open inline-flex items-center" style="color:var(--text-muted);" aria-hidden="true"><svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg></span>
+            Advanced — LLM overrides
+          </summary>
+          <div class="px-3 pb-3 pt-1 grid sm:grid-cols-2 gap-3">
+            <div>
+              <label class="text-xs" style="color:var(--text-tertiary);">Provider</label>
+              <select id="iterLlmProvider" class="w-full mt-1 rounded px-3 py-2 text-sm" style="background:var(--bg-input);border:1px solid var(--border-input);color:var(--text-primary);">
+                <option value="" selected>Default</option>
+                <option value="openai">OpenAI</option>
+                <option value="anthropic">Anthropic</option>
+                <option value="gemini">Gemini</option>
+              </select>
+            </div>
+            <div>
+              <label class="text-xs" style="color:var(--text-tertiary);">Model (optional)</label>
+              <input id="iterLlmModel" type="text" class="w-full mt-1 rounded px-3 py-2 text-sm" style="background:var(--bg-input);border:1px solid var(--border-input);color:var(--text-primary);" placeholder="e.g. gpt-4o-mini" />
+            </div>
+          </div>
+        </details>
+        <button type="button" id="btnIterateSubmit" class="w-full sm:w-auto px-6 py-2.5 rounded text-sm font-medium" style="background:var(--status-med);color:#ffffff;">Iterate</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Export modal -->
+  <div id="exportModal" class="hidden fixed inset-0 z-[80] flex items-center justify-center p-4 backdrop-blur-sm" style="background:var(--bg-overlay);">
+    <div class="rounded-xl max-w-lg w-full shadow-2xl" style="background:var(--bg-surface);border:1px solid var(--border-default);">
+      <div class="flex items-center justify-between px-4 py-3" style="border-bottom:1px solid var(--border-default);">
+        <h2 class="text-lg font-semibold">Export Test Cases</h2>
+        <button type="button" id="btnCloseExportModal" class="text-2xl leading-none" style="color:var(--text-muted);">&times;</button>
+      </div>
+      <div class="p-4 space-y-4">
+        <div>
+          <label class="text-xs block mb-1" style="color:var(--text-tertiary);">Features</label>
+          <div id="exportFeatureCheckboxes" class="max-h-40 overflow-y-auto rounded-lg p-2 space-y-1" style="border:1px solid var(--border-default);">
+          </div>
+        </div>
+        <div>
+          <label class="text-xs" style="color:var(--text-tertiary);" for="exportSearchTerm">Search term (optional)</label>
+          <input id="exportSearchTerm" type="text" class="w-full mt-1 rounded px-3 py-2 text-sm" style="background:var(--bg-input);border:1px solid var(--border-input);color:var(--text-primary);" placeholder="Filter by title, steps..." />
+        </div>
+        <div>
+          <label class="text-xs" style="color:var(--text-tertiary);" for="exportPriority">Priority</label>
+          <select id="exportPriority" class="w-full mt-1 rounded px-3 py-2 text-sm" style="background:var(--bg-input);border:1px solid var(--border-input);color:var(--text-primary);">
+            <option value="">All</option>
+            <option value="high">High</option>
+            <option value="medium">Medium</option>
+            <option value="low">Low</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs" style="color:var(--text-tertiary);" for="exportFormat">Export format</label>
+          <select id="exportFormat" class="w-full mt-1 rounded px-3 py-2 text-sm" style="background:var(--bg-input);border:1px solid var(--border-input);color:var(--text-primary);">
+            <option value="excel">Excel (.xlsx)</option>
+            <option value="csv">CSV</option>
+            <option value="json">JSON</option>
+            <option value="testrail">TestRail CSV</option>
+          </select>
+        </div>
+        <div class="flex justify-end gap-2">
+          <button type="button" id="btnExportCancel" class="px-4 py-2 rounded text-sm" style="background:var(--btn-neutral);color:var(--btn-neutral-text);">Cancel</button>
+          <button type="button" id="btnExportSubmit" class="px-4 py-2 rounded text-sm font-medium" style="background:var(--accent);color:var(--text-on-accent);">Export</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Test case detail modal -->
+  <div id="tcDetailModal" class="hidden fixed inset-0 z-[80] flex items-end sm:items-center justify-center backdrop-blur-sm" style="background:var(--bg-overlay);">
+    <div class="rounded-t-xl sm:rounded-xl w-full sm:max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl flex flex-col" style="background:var(--bg-surface);border:1px solid var(--border-default);">
+      <div class="flex items-start justify-between gap-3 px-4 py-3 sticky top-0 z-10" style="border-bottom:1px solid var(--border-default);background:var(--bg-surface);">
+        <h2 class="text-lg font-semibold min-w-0 flex-1 break-words"><span id="tcDetailId" class="font-mono" style="color:var(--accent-text);"></span> <span id="tcDetailTitleDisplay"></span></h2>
+        <div class="flex items-center gap-2 shrink-0">
+          <button type="button" id="btnTcDetailAutoExec" class="text-xs px-3 py-1.5 rounded font-medium flex items-center gap-1.5 whitespace-nowrap" style="background:var(--accent);color:var(--text-on-accent);">&#9654; Auto-execute</button>
+          <button type="button" id="btnTcDetailDelete" class="text-xs px-3 py-1.5 rounded whitespace-nowrap" style="background:var(--status-high);color:#ffffff;">Delete</button>
+          <button type="button" id="btnCloseTcDetail" class="text-2xl leading-none" style="color:var(--text-muted);">&times;</button>
+        </div>
+      </div>
+      <div class="p-4 space-y-4 flex-1">
+        <input type="hidden" id="tcDetailTcId" />
+        <div>
+          <label class="text-xs" style="color:var(--text-tertiary);">Title</label>
+          <input id="tcDetailTitle" type="text" class="w-full mt-1 rounded px-3 py-2 text-sm" style="background:var(--bg-input);border:1px solid var(--border-input);color:var(--text-primary);" />
+        </div>
+        <div class="grid grid-cols-3 gap-3">
+          <div>
+            <label class="text-xs" style="color:var(--text-tertiary);">Type</label>
+            <select id="tcDetailType" class="w-full mt-1 rounded px-3 py-2 text-sm" style="background:var(--bg-input);border:1px solid var(--border-input);color:var(--text-primary);"></select>
+          </div>
+          <div>
+            <label class="text-xs" style="color:var(--text-tertiary);">Priority</label>
+            <select id="tcDetailPriority" class="w-full mt-1 rounded px-3 py-2 text-sm" style="background:var(--bg-input);border:1px solid var(--border-input);color:var(--text-primary);">
+              <option value="high">high</option>
+              <option value="medium">medium</option>
+              <option value="low">low</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-xs" style="color:var(--text-tertiary);">Feature</label>
+            <input id="tcDetailFeature" type="text" class="w-full mt-1 rounded px-3 py-2 text-sm" style="background:var(--bg-input);border:1px solid var(--border-input);color:var(--text-primary);" readonly />
+          </div>
+        </div>
+        <div>
+          <label class="text-xs" style="color:var(--text-tertiary);">Preconditions</label>
+          <textarea id="tcDetailPre" rows="2" class="w-full mt-1 rounded px-3 py-2 text-sm" style="background:var(--bg-input);border:1px solid var(--border-input);color:var(--text-primary);"></textarea>
+        </div>
+        <div>
+          <label class="text-xs" style="color:var(--text-tertiary);">Steps (one per line)</label>
+          <textarea id="tcDetailSteps" rows="5" class="w-full mt-1 rounded px-3 py-2 text-sm" style="background:var(--bg-input);border:1px solid var(--border-input);color:var(--text-primary);"></textarea>
+        </div>
+        <div>
+          <label class="text-xs" style="color:var(--text-tertiary);">Expected Result</label>
+          <textarea id="tcDetailExpected" rows="2" class="w-full mt-1 rounded px-3 py-2 text-sm" style="background:var(--bg-input);border:1px solid var(--border-input);color:var(--text-primary);"></textarea>
+        </div>
+        <div>
+          <label class="text-xs" style="color:var(--text-tertiary);">Source / Traceability</label>
+          <input id="tcDetailSource" type="text" class="w-full mt-1 rounded px-3 py-2 text-sm" style="background:var(--bg-input);border:1px solid var(--border-input);color:var(--text-primary);" />
+        </div>
+        <div class="text-xs" style="color:var(--text-tertiary);" id="tcDetailCreatedAt"></div>
+        <div class="flex justify-end gap-2 pt-2" style="border-top:1px solid var(--border-default);">
+          <button type="button" id="btnTcDetailSave" class="px-4 py-2 rounded text-sm font-medium" style="background:var(--accent);color:var(--text-on-accent);">Save Changes</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Auto-execute modal -->
+  <div id="autoExecModal" class="hidden fixed inset-0 z-[90] flex items-center justify-center p-4" style="background:var(--bg-overlay);" role="dialog" aria-modal="true">
+    <div class="rounded-xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl" style="background:var(--bg-surface);border:1px solid var(--border-default);">
+      <div class="flex items-center justify-between px-4 py-3 shrink-0" style="border-bottom:1px solid var(--border-default);">
+        <h2 class="text-lg font-semibold">Auto-execute Test Case</h2>
+        <button type="button" id="btnCloseAutoExecModal" class="text-2xl leading-none" style="color:var(--text-muted);">&times;</button>
+      </div>
+      <div class="p-4 space-y-3 overflow-y-auto" id="autoExecBody">
+        <div class="rounded-lg p-3" style="background:var(--bg-surface-alt);border:1px solid var(--border-default);">
+          <p class="text-xs uppercase tracking-wider mb-1" style="color:var(--text-tertiary);">Test case</p>
+          <p id="autoExecTcTitle" class="text-sm font-medium" style="color:var(--text-primary);"></p>
+          <ol id="autoExecTcSteps" class="text-xs mt-2 list-decimal list-inside" style="color:var(--text-secondary);"></ol>
+          <p class="text-xs mt-2" style="color:var(--text-tertiary);"><strong>Expected:</strong> <span id="autoExecTcExpected"></span></p>
+        </div>
+
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <label for="autoExecCode" class="text-xs" style="color:var(--text-tertiary);">Playwright code</label>
+            <button type="button" id="btnAutoExecRegenerate" class="text-xs underline" style="color:var(--accent-text);">Regenerate</button>
+          </div>
+          <textarea id="autoExecCode" rows="12" class="w-full text-xs rounded px-3 py-2 font-mono" style="background:var(--bg-input);border:1px solid var(--border-input);color:var(--text-primary);" spellcheck="false"></textarea>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <input type="checkbox" id="autoExecHeaded" />
+          <label for="autoExecHeaded" class="text-sm" style="color:var(--text-secondary);">Watch it run (headed browser)</label>
+        </div>
+
+        <!-- Result panel populated after Run -->
+        <div id="autoExecResult" class="hidden"></div>
+      </div>
+      <div class="px-4 py-3 flex justify-end gap-2 shrink-0" style="border-top:1px solid var(--border-default);">
+        <button type="button" id="btnAutoExecCancel" class="px-4 py-2 rounded text-sm" style="background:var(--btn-neutral);color:var(--btn-neutral-text);">Cancel</button>
+        <button type="button" id="btnAutoExecRun" class="px-5 py-2 rounded text-sm font-medium" style="background:var(--accent);color:var(--text-on-accent);">&#9654; Run</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Update Expected Result modal (Mark as Expected Behavior flow) -->
+  <div id="adaptExpectedModal" class="hidden fixed inset-0 flex items-center justify-center p-4" style="background:var(--bg-overlay);z-index:95;" role="dialog" aria-modal="true">
+    <div class="rounded-xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl" style="background:var(--bg-surface);border:1px solid var(--border-default);">
+      <div class="flex items-center justify-between px-4 py-3 shrink-0" style="border-bottom:1px solid var(--border-default);">
+        <h2 class="text-lg font-semibold">Update Expected Result</h2>
+        <button type="button" id="btnCloseAdaptExpectedModal" class="text-2xl leading-none" style="color:var(--text-muted);">&times;</button>
+      </div>
+      <div class="p-4 space-y-3 overflow-y-auto">
+        <div class="rounded-lg p-3" style="background:var(--bg-surface-alt);border:1px solid var(--border-default);">
+          <p class="text-xs uppercase tracking-wider mb-1" style="color:var(--text-tertiary);">Original expected result</p>
+          <p id="adaptOriginalExpected" class="text-sm" style="color:var(--text-primary);"></p>
+        </div>
+        <div class="rounded-lg p-3" style="background:var(--bg-surface-alt);border:1px solid var(--border-default);">
+          <p class="text-xs uppercase tracking-wider mb-1" style="color:var(--text-tertiary);">Page text we observed</p>
+          <p id="adaptObservedText" class="text-xs whitespace-pre-wrap" style="color:var(--text-secondary);"></p>
+        </div>
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <label for="adaptSuggestedText" class="text-xs" style="color:var(--text-tertiary);">Adapted (editable):</label>
+            <button type="button" id="btnRegenerateAdaptSuggestion" class="text-xs underline" style="color:var(--accent-text);">&#x1F504; Try another phrasing</button>
+          </div>
+          <textarea id="adaptSuggestedText" rows="6" class="w-full text-sm rounded px-3 py-2" style="background:var(--bg-input);border:1px solid var(--border-input);color:var(--text-primary);"></textarea>
+        </div>
+        <label class="flex items-center gap-2 text-sm" style="color:var(--text-secondary);">
+          <input type="checkbox" id="adaptRegenerateCode" />
+          Regenerate Playwright code from new expected
+        </label>
+        <p class="text-xs" style="color:var(--text-muted);">This permanently updates the test case. Use Cancel if the actual behavior is a bug.</p>
+      </div>
+      <div class="px-4 py-3 flex justify-end gap-2 shrink-0" style="border-top:1px solid var(--border-default);">
+        <button type="button" id="btnAdaptExpectedCancel" class="px-4 py-2 rounded text-sm" style="background:var(--btn-neutral);color:var(--btn-neutral-text);">Cancel</button>
+        <button type="button" id="btnAdaptExpectedSave" class="px-5 py-2 rounded text-sm font-medium" style="background:var(--accent);color:var(--text-on-accent);">Save (replaces expected result)</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Create Feature modal -->
+  <div id="featureModal" class="hidden fixed inset-0 z-[80] flex items-center justify-center p-4 backdrop-blur-sm" style="background:var(--bg-overlay);">
+    <div class="rounded-xl max-w-md w-full shadow-2xl" style="background:var(--bg-surface);border:1px solid var(--border-default);">
+      <div class="flex items-center justify-between px-4 py-3" style="border-bottom:1px solid var(--border-default);">
+        <h2 class="text-lg font-semibold">New Feature</h2>
+        <button type="button" id="btnCloseFeatureModal" class="text-2xl leading-none" style="color:var(--text-muted);">&times;</button>
+      </div>
+      <div class="p-4 space-y-4">
+        <div>
+          <label class="text-xs" style="color:var(--text-tertiary);" for="featureModalName">Feature Name</label>
+          <input id="featureModalName" type="text" class="w-full mt-1 rounded px-3 py-2 text-sm" style="background:var(--bg-input);border:1px solid var(--border-input);color:var(--text-primary);" placeholder="e.g. Login, Dashboard, Checkout" />
+        </div>
+        <div class="flex justify-end gap-2">
+          <button type="button" id="btnFeatureModalCancel" class="px-4 py-2 rounded text-sm" style="background:var(--btn-neutral);color:var(--btn-neutral-text);">Cancel</button>
+          <button type="button" id="btnFeatureModalSave" class="px-4 py-2 rounded text-sm font-medium" style="background:var(--accent);color:var(--text-on-accent);">Create Feature</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- App header -->
+  <header id="appHeader" class="sticky top-0 z-50 backdrop-blur shrink-0" style="border-bottom:1px solid var(--border-default);background:var(--bg-header);">
+    <div class="max-w-[1600px] mx-auto px-3 sm:px-4 h-14 flex items-center justify-between gap-2">
+      <div class="flex items-center gap-3 min-w-0 flex-1">
+        <a href="#/" id="linkHome" class="text-xl font-bold shrink-0 tracking-tight" style="color:var(--accent-text);">AutoQA Studio</a>
+        <!-- Project Switcher -->
+        <div id="projectSwitcherWrap" class="hidden relative min-w-0">
+          <button type="button" id="projectSwitcherBtn" class="flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm max-w-[260px] truncate transition-colors" style="background:var(--bg-surface-alt);border:1px solid var(--border-input);color:var(--text-primary);">
+            <span id="projectSwitcherLabel" class="truncate">Select Project</span>
+            <svg class="w-4 h-4 shrink-0" style="color:var(--text-muted);" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+          </button>
+          <div id="projectSwitcherDropdown" class="hidden absolute top-full left-0 mt-1 w-72 rounded-lg shadow-xl z-50 overflow-hidden" style="background:var(--bg-surface);border:1px solid var(--border-default);">
+            <div id="projectSwitcherList" class="max-h-64 overflow-y-auto"></div>
+            <div class="p-2" style="border-top:1px solid var(--border-default);">
+              <button type="button" id="btnSwitcherCreateProject" class="w-full text-left px-3 py-2 text-sm rounded flex items-center gap-2" style="color:var(--accent-text);">
+                <span class="text-lg leading-none">+</span> Create New Project
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 sm:gap-3 shrink-0">
+        <label class="flex items-center gap-2 cursor-pointer select-none">
+          <span class="text-xs" style="color:var(--text-tertiary);">Dark</span>
+          <span id="darkToggle" role="switch" aria-checked="false" tabindex="0" class="dark-toggle-track">
+            <span class="dark-toggle-knob"></span>
+          </span>
+        </label>
+        <span id="userChip" class="hidden max-w-[140px] sm:max-w-[200px] truncate text-xs" style="color:var(--text-tertiary);"></span>
+        <button type="button" id="btnLogout" class="hidden text-xs text-amber-600 hover:underline">Log out</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Home: project gallery -->
+  <main id="viewProjectList" class="flex-1 max-w-[1600px] w-full mx-auto px-3 sm:px-4 py-6">
+    <div class="mb-6">
+      <h1 class="text-2xl sm:text-3xl font-bold">Your Projects</h1>
+      <p class="mt-1 text-sm" style="color:var(--text-tertiary);">Select a project or create a new one to start generating test cases.</p>
+    </div>
+    <div id="projectGrid" class="grid sm:grid-cols-2 xl:grid-cols-3 gap-4"></div>
+    <div class="mt-6">
+      <button type="button" id="btnHomeCreateProject" class="px-6 py-3 rounded-lg text-sm font-medium flex items-center gap-2" style="background:var(--accent);color:var(--text-on-accent);">
+        <span class="text-lg leading-none">+</span> Create New Project
+      </button>
+    </div>
+  </main>
+
+  <!-- Workspace: sidebar + content -->
+  <div id="viewWorkspace" class="hidden flex-1 flex min-h-0 max-w-[1600px] w-full mx-auto">
+    <aside id="sidebar" class="w-56 shrink-0 pt-2 pb-4 flex flex-col" style="border-right:1px solid var(--border-default);background:var(--bg-sidebar);">
+      <nav id="sidebarNav" class="flex flex-col gap-0.5 px-2 flex-1">
+        <a href="#" data-sub="overview" class="sidebar-link flex items-center gap-2 px-3 py-2 rounded-lg text-sm" style="color:var(--text-secondary);">
+          <span class="w-5 text-center opacity-70">&#9670;</span> Project Overview
+        </a>
+        <a href="#" data-sub="tests" class="sidebar-link flex items-center gap-2 px-3 py-2 rounded-lg text-sm" style="color:var(--text-secondary);">
+          <span class="w-5 text-center opacity-70">&#9776;</span> Test Cases
+        </a>
+        <a href="#" data-sub="dashboard" class="sidebar-link flex items-center gap-2 px-3 py-2 rounded-lg text-sm" style="color:var(--text-secondary);">
+          <span class="w-5 text-center opacity-70">&#9636;</span> Dashboard
+        </a>
+        <a href="#" data-sub="settings" class="sidebar-link flex items-center gap-2 px-3 py-2 rounded-lg text-sm" style="color:var(--text-secondary);">
+          <span class="w-5 text-center opacity-70">&#9881;</span> Settings
+        </a>
+      </nav>
+    </aside>
+
+    <div id="workspaceMain" class="flex-1 min-w-0 overflow-y-auto px-3 sm:px-6 py-6">
+      <!-- Project Overview -->
+      <section id="viewOverview" class="workspace-section hidden max-w-5xl space-y-4">
+        <!-- Header banner: project name (h1) + kebab -->
+        <div class="rounded-xl p-4 shadow-sm flex justify-between items-start gap-3" style="background:var(--bg-surface);border:1px solid var(--border-default);">
+          <div class="min-w-0">
+            <h1 id="projectNameDisplay" class="text-2xl font-semibold min-w-0 break-words" style="color:var(--text-primary);"></h1>
+            <p id="projectUpdatedMeta" class="text-xs mt-1" style="color:var(--text-tertiary);"></p>
+          </div>
+          <div class="relative shrink-0" style="z-index:40;">
+            <button type="button" id="projectKebabBtn" class="p-1.5 rounded-md transition-colors hover:opacity-80" title="Project actions" aria-label="Project actions" aria-haspopup="true" aria-expanded="false" style="color:var(--text-muted);">
+              <svg viewBox="0 0 24 24" fill="currentColor" style="width:20px;height:20px;"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
+            </button>
+            <div id="projectKebabMenu" class="hidden absolute right-0 mt-1 rounded-lg shadow-lg z-20 py-1" style="background:var(--bg-surface);border:1px solid var(--border-default);width:11rem;">
+              <button type="button" id="kebabEditProject" class="w-full text-left px-3 py-2 text-sm flex items-center gap-2 hover:opacity-80" style="color:var(--text-primary);">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;flex-shrink:0;"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+                Edit project
+              </button>
+              <div class="my-1" style="border-top:1px solid var(--border-default);"></div>
+              <button type="button" id="kebabDeleteProject" class="w-full text-left px-3 py-2 text-sm flex items-center gap-2 hover:opacity-80" style="color:var(--status-high);">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;flex-shrink:0;"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                Delete project
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Base URL card -->
+        <div class="rounded-xl p-4 shadow-sm" style="background:var(--bg-surface);border:1px solid var(--border-default);">
+          <div class="flex justify-between items-center gap-2 mb-2">
+            <h2 class="text-base font-semibold">Base URL</h2>
+            <div class="flex items-center gap-2">
+              <span id="baseUrlError" class="text-xs" style="color:var(--status-high);"></span>
+              <div id="baseUrlPreviewActions">
+                <button type="button" id="btnEditBaseUrl" class="text-sm px-3 py-1.5 rounded font-medium" style="background:var(--btn-neutral);color:var(--btn-neutral-text);border:1px solid var(--border-input);">Edit</button>
+              </div>
+              <div id="baseUrlEditActions" class="hidden flex items-center gap-2">
+                <button type="button" id="btnCancelBaseUrl" class="text-sm px-3 py-1.5 rounded" style="background:var(--btn-neutral);color:var(--btn-neutral-text);border:1px solid var(--border-input);">Cancel</button>
+                <button type="button" id="btnSaveBaseUrl" class="text-sm px-3 py-1.5 rounded font-medium" style="background:var(--accent);color:var(--text-on-accent);">Save</button>
+              </div>
+            </div>
+          </div>
+          <div id="baseUrlPreview" class="text-sm break-all" style="color:var(--text-primary);"></div>
+          <div id="baseUrlEditWrap" class="hidden">
+            <input id="projectBaseUrl" type="url" class="w-full text-sm rounded px-3 py-2" style="background:var(--bg-input);border:1px solid var(--border-input);color:var(--text-primary);" placeholder="https://your-app.example.com" />
+          </div>
+          <p class="text-xs mt-2" style="color:var(--text-tertiary);">Where Auto-execute runs Playwright tests.</p>
+        </div>
+
+        <!-- Project Description card -->
+        <div class="rounded-xl p-4 shadow-sm flex flex-col" style="background:var(--bg-surface);border:1px solid var(--border-default);">
+          <div class="flex flex-wrap justify-between items-center gap-2 mb-2">
+            <h2 class="text-base font-semibold">Project Description</h2>
+            <div class="flex items-center gap-2">
+              <span id="descError" class="text-xs" style="color:var(--status-high);"></span>
+              <div id="descPreviewActions">
+                <button type="button" id="btnEditDescription" class="text-sm px-3 py-1.5 rounded font-medium" style="background:var(--btn-neutral);color:var(--btn-neutral-text);border:1px solid var(--border-input);">Edit</button>
+              </div>
+              <div id="descEditActions" class="hidden flex items-center gap-2">
+                <button type="button" id="btnOpenDraftFromFile" class="text-sm px-3 py-1.5 rounded inline-flex items-center gap-1.5" style="background:var(--btn-neutral);color:var(--btn-neutral-text);border:1px solid var(--border-input);">✨ Draft from file</button>
+                <button type="button" id="btnCancelDescription" class="text-sm px-3 py-1.5 rounded" style="background:var(--btn-neutral);color:var(--btn-neutral-text);border:1px solid var(--border-input);">Cancel</button>
+                <button type="button" id="btnSaveDescription" class="text-sm px-3 py-1.5 rounded font-medium" style="background:var(--accent);color:var(--text-on-accent);">Save</button>
+              </div>
+            </div>
+          </div>
+          <p class="text-xs mb-2" style="color:var(--text-tertiary);">Sent as context to the AI model for every test case generation.</p>
+          <div id="descPreview" class="text-sm whitespace-pre-wrap leading-relaxed" style="color:var(--text-secondary);min-height:6rem;"></div>
+          <div id="descEditWrap" class="hidden flex-1 flex flex-col">
+            <textarea id="descriptionText" rows="10" placeholder="Describe the product, domain, user roles, business rules, and constraints..." class="w-full text-sm rounded px-3 py-2 leading-relaxed flex-1" style="background:var(--bg-input);border:1px solid var(--border-input);color:var(--text-primary);"></textarea>
+          </div>
+        </div>
+      </section>
+
+      <!-- Test Cases (Jira backlog style) -->
+      <section id="viewTests" class="workspace-section hidden max-w-5xl space-y-4">
+        <div class="flex flex-wrap justify-between items-center gap-3">
+          <h1 class="text-xl font-semibold">Test Cases</h1>
+          <div class="flex gap-2">
+            <button type="button" id="btnNewFeature" class="px-4 py-2 rounded text-sm font-medium flex items-center gap-1.5" style="background:var(--accent);color:var(--text-on-accent);">
+              <span class="text-lg leading-none">+</span> New Feature
+            </button>
+            <button type="button" id="btnOpenExport" class="px-4 py-2 rounded text-sm font-medium flex items-center gap-1.5" style="background:var(--btn-neutral);color:var(--btn-neutral-text);">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+              Export
+            </button>
+          </div>
+        </div>
+        <div id="featureAccordions" class="space-y-3"></div>
+        <div id="noFeaturesHint" class="hidden text-sm py-8 text-center" style="color:var(--text-tertiary);">
+          No features yet. Click <strong style="color:var(--text-secondary);">+ New Feature</strong> to create your first feature and start generating test cases.
+        </div>
+        <div id="bulkActionsBar" class="hidden fixed top-20 left-1/2 -translate-x-1/2 z-20 rounded-lg shadow-lg flex items-center gap-3 px-4 py-2.5" style="background:var(--bg-surface);border:1px solid var(--border-default);">
+          <span class="text-sm" style="color:var(--text-primary);"><span id="bulkSelectedCount">0</span> selected</span>
+          <button type="button" id="btnBulkDelete" class="text-xs px-2.5 py-1.5 rounded" style="background:var(--status-high-bg);color:var(--status-high);">&#128465; Delete selected</button>
+          <button type="button" id="btnBulkClear" class="text-xs px-2.5 py-1.5 rounded" style="background:var(--btn-neutral);color:var(--btn-neutral-text);">Clear</button>
+        </div>
+      </section>
+
+      <!-- Dashboard (Bento grid) -->
+      <section id="viewDashboard" class="workspace-section hidden max-w-5xl">
+        <!-- Header banner block -->
+        <div class="rounded-xl p-4 mb-4 shadow-sm" style="background:var(--bg-surface);border:1px solid var(--border-default);">
+          <h1 class="text-xl font-medium">Dashboard</h1>
+          <p class="text-xs mt-1" style="color:var(--text-tertiary);">Coverage and recent generation runs for this project.</p>
+        </div>
+
+        <div id="dashboardEmpty" class="text-sm rounded-xl p-4" style="color:var(--text-tertiary);background:var(--bg-surface);border:1px solid var(--border-default);">Loading...</div>
+
+        <div id="dashboardContent" class="hidden space-y-4">
+          <!-- Bento row 1: 4 metric tiles (1x1 each) -->
+          <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="rounded-xl p-4 shadow-sm" style="background:var(--bg-surface);border:1px solid var(--border-default);">
+              <p class="text-[11px] uppercase tracking-wider mb-1" style="color:var(--text-tertiary);">Total tests</p>
+              <p id="dashTotal" class="text-[28px] font-medium leading-none">0</p>
+              <p id="dashTotalDetail" class="text-xs mt-1" style="color:var(--text-tertiary);"></p>
+            </div>
+            <div class="rounded-xl p-4 shadow-sm" style="background:var(--bg-surface);border:1px solid var(--border-default);">
+              <p class="text-[11px] uppercase tracking-wider mb-1" style="color:var(--text-tertiary);">High priority</p>
+              <p id="dashHighVal" class="text-[28px] font-medium leading-none" style="color:var(--status-high);">0</p>
+              <p id="dashHighDetail" class="text-xs mt-1" style="color:var(--text-tertiary);"></p>
+            </div>
+            <div class="rounded-xl p-4 shadow-sm" style="background:var(--bg-surface);border:1px solid var(--border-default);">
+              <p class="text-[11px] uppercase tracking-wider mb-1" style="color:var(--text-tertiary);">Medium priority</p>
+              <p id="dashMedVal" class="text-[28px] font-medium leading-none" style="color:var(--status-med);">0</p>
+              <p id="dashMedDetail" class="text-xs mt-1" style="color:var(--text-tertiary);"></p>
+            </div>
+            <div class="rounded-xl p-4 shadow-sm" style="background:var(--bg-surface);border:1px solid var(--border-default);">
+              <p class="text-[11px] uppercase tracking-wider mb-1" style="color:var(--text-tertiary);">Last run</p>
+              <p id="dashLastRunVal" class="text-[18px] font-medium leading-none">&mdash;</p>
+              <p id="dashLastRunDetail" class="text-xs mt-1" style="color:var(--text-tertiary);"></p>
+            </div>
+          </div>
+
+          <!-- Bento row 2: 3 chart blocks (1x1 each on lg, stack on smaller) -->
+          <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <div class="rounded-xl p-5 shadow-sm" style="background:var(--bg-surface);border:1px solid var(--border-default);">
+              <p class="text-[11px] uppercase tracking-wider mb-3" style="color:var(--text-tertiary);">Tests by type</p>
+              <div id="dashTypeLegend" class="dash-legend mb-3"></div>
+              <div style="position:relative;height:200px;">
+                <canvas id="dashTypeChart"></canvas>
+              </div>
+            </div>
+            <div class="rounded-xl p-5 shadow-sm" style="background:var(--bg-surface);border:1px solid var(--border-default);">
+              <p class="text-[11px] uppercase tracking-wider mb-3" style="color:var(--text-tertiary);">Tests by feature</p>
+              <div id="dashFeatLegend" class="dash-legend mb-3"></div>
+              <div style="position:relative;height:200px;">
+                <canvas id="dashFeatChart"></canvas>
+              </div>
+            </div>
+            <div class="rounded-xl p-5 shadow-sm" style="background:var(--bg-surface);border:1px solid var(--border-default);">
+              <p class="text-[11px] uppercase tracking-wider mb-3" style="color:var(--text-tertiary);">Priority breakdown</p>
+              <div id="dashPriorityPills" class="flex flex-wrap gap-2 mb-3"></div>
+              <div style="position:relative;height:120px;">
+                <canvas id="dashPriorityChart"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bento row 3: 2 wide detail blocks (2x1 each on lg) -->
+          <div class="grid gap-4 lg:grid-cols-2">
+            <div class="rounded-xl p-5 shadow-sm" style="background:var(--bg-surface);border:1px solid var(--border-default);">
+              <p class="text-[11px] uppercase tracking-wider mb-4" style="color:var(--text-tertiary);">Tests by type &mdash; detail</p>
+              <div id="dashTypeBars"></div>
+            </div>
+            <div class="rounded-xl p-5 shadow-sm" style="background:var(--bg-surface);border:1px solid var(--border-default);">
+              <p class="text-[11px] uppercase tracking-wider mb-4" style="color:var(--text-tertiary);">Tests by feature &mdash; detail</p>
+              <div id="dashFeatBars"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Settings -->
+      <section id="viewSettings" class="workspace-section hidden max-w-4xl space-y-6">
+        <h1 class="text-xl font-semibold">Settings</h1>
+        <p class="text-xs" style="color:var(--text-tertiary);">API keys are stored only in the local SQLite database (not read from <code style="color:var(--text-secondary);">.env</code>).</p>
+        <div class="flex gap-1 pb-0" style="border-bottom:1px solid var(--border-default);">
+          <button type="button" id="settingsInlineTabLlm" class="settings-inline-tab px-3 py-2 text-sm rounded-t" style="border-bottom:2px solid var(--accent);color:var(--accent-text);">LLM</button>
+          <button type="button" id="settingsInlineTabIntegrations" class="settings-inline-tab px-3 py-2 text-sm rounded-t" style="border-bottom:2px solid transparent;color:var(--text-tertiary);">Integrations</button>
+        </div>
+        <div id="settingsInlinePanelLlm" class="settings-inline-panel space-y-4">
+          <div class="rounded-xl p-4 shadow-sm" style="background:var(--bg-surface);border:1px solid var(--border-default);">
+            <h3 class="text-xs font-semibold uppercase tracking-wide mb-3" style="color:var(--text-tertiary);">LLM API key</h3>
+            <div class="grid sm:grid-cols-[minmax(0,220px)_1fr] gap-x-4 gap-y-0 items-start">
+              <div class="min-w-0">
+                <div class="min-h-[1.25rem] flex items-center">
+                  <label class="text-xs" style="color:var(--text-tertiary);" for="inlineLlmApiKeyProvider">Provider</label>
+                </div>
+                <select id="inlineLlmApiKeyProvider" class="w-full mt-1 rounded px-3 py-2 text-sm" style="background:var(--bg-input);border:1px solid var(--border-input);color:var(--text-primary);">
+                  <option value="openai">OpenAI</option>
+                  <option value="anthropic">Anthropic</option>
+                  <option value="gemini">Google Gemini</option>
+                </select>
+              </div>
+              <div class="min-w-0">
+                <div class="flex justify-between items-center gap-2 min-h-[1.25rem]">
+                  <label class="text-xs" style="color:var(--text-tertiary);" id="inlineLabelLlmApiKey" for="inline_key_llm_api_key">OpenAI API key</label>
+                  <button type="button" id="btnInlineClearLlmApiKey" class="text-xs text-amber-600 hover:underline shrink-0">Clear</button>
+                </div>
+                <input id="inline_key_llm_api_key" type="password" autocomplete="off" class="w-full mt-1 rounded px-3 py-2 text-sm" style="background:var(--bg-input);border:1px solid var(--border-input);color:var(--text-primary);" placeholder="Paste new key (optional)" />
+                <p id="inline_hint_llm_api_key" class="text-xs mt-1" style="color:var(--text-muted);"></p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div id="settingsInlinePanelIntegrations" class="settings-inline-panel hidden space-y-4">
+          <div id="integrationsContainer" class="space-y-4"></div>
+        </div>
+        <div id="inlineSettingsFooter" class="flex flex-wrap gap-2 items-center">
+          <button type="button" id="btnInlineSaveApiKeys" class="px-4 py-2 rounded text-sm font-medium" style="background:var(--accent);color:var(--text-on-accent);">Save</button>
+          <span id="inlineApiKeysSaveStatus" class="text-xs" style="color:var(--text-tertiary);"></span>
+        </div>
+      </section>
+
+      <!-- Feature Details (separate sub-view; only header + tabs render here) -->
+      <section id="viewFeatureDetail" class="workspace-section hidden max-w-6xl space-y-4">
+        <div class="rounded-xl p-4 shadow-sm" style="background:var(--bg-surface);border:1px solid var(--border-default);">
+          <a href="#" id="featDetailBack" class="text-sm" style="color:var(--text-tertiary);">&larr; Back to Test Cases</a>
+          <div class="mt-3 flex items-center gap-2">
+            <span class="text-sm" style="color:var(--text-tertiary);">Feature:</span>
+            <input id="featDetailName" type="text" class="text-xl font-semibold bg-transparent border-b outline-none flex-1 min-w-0 px-1"
+              style="border-color:var(--border-default);color:var(--text-primary);" />
+            <button id="featDetailSave" type="button" class="text-xs px-3 py-1.5 rounded" style="background:var(--accent);color:var(--text-on-accent);">Save</button>
+          </div>
+        </div>
+        <div class="rounded-xl shadow-sm" style="background:var(--bg-surface);border:1px solid var(--border-default);">
+          <div class="flex gap-1 px-3 pt-2" style="border-bottom:1px solid var(--border-default);">
+            <button type="button" id="featTabCases" class="feat-tab px-3 py-2 text-sm rounded-t"
+              style="border-bottom:2px solid var(--accent);color:var(--accent-text);">Test Cases (<span id="featTabCasesCount">0</span>)</button>
+            <button type="button" id="featTabGens" class="feat-tab px-3 py-2 text-sm rounded-t"
+              style="border-bottom:2px solid transparent;color:var(--text-tertiary);">Generations (<span id="featTabGensCount">0</span>)</button>
+          </div>
+          <div id="featTabBody" class="p-3"></div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <!-- Image preview modal (used by Generations tab screenshots) -->
+  <div id="imageModal" class="hidden fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.7);">
+    <div class="relative bg-white rounded p-2 max-w-[90vw] max-h-[90vh]">
+      <button id="imageModalClose" type="button" class="absolute top-2 right-2 text-xl leading-none px-2" style="color:#333;">&times;</button>
+      <img id="imageModalImg" alt="Preview" style="max-width:88vw;max-height:84vh;display:block;" />
+    </div>
+  </div>
+
+  <!-- Draft description from file modal -->
+  <div id="draftModal" class="hidden fixed inset-0 z-[80] flex items-center justify-center p-4 backdrop-blur-sm overflow-y-auto" style="background:var(--bg-overlay);">
+    <div class="rounded-xl max-w-2xl w-full shadow-2xl my-8" style="background:var(--bg-surface);border:1px solid var(--border-default);">
+      <div class="flex items-center justify-between px-4 py-3" style="border-bottom:1px solid var(--border-default);">
+        <h2 class="text-lg font-semibold">Draft description from file</h2>
+        <button type="button" id="btnCloseDraftModal" class="text-2xl leading-none" style="color:var(--text-muted);">&times;</button>
+      </div>
+      <div class="p-4 space-y-4">
+        <p class="text-sm" style="color:var(--text-tertiary);">Upload a PDF, TXT, DOCX, or XLSX. The AI drafts a project description from its contents.</p>
+
+        <!-- State A: picker -->
+        <div id="draftStatePick" class="space-y-3">
+          <label class="cursor-pointer px-4 py-2 rounded text-sm inline-flex items-center gap-2" style="background:var(--btn-neutral);color:var(--btn-neutral-text);border:1px solid var(--border-input);">
+            <input type="file" id="draftFileInput" class="hidden" accept=".txt,.md,.csv,.pdf,.xlsx,.docx" />
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:16px;height:16px;flex-shrink:0;"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" /></svg>
+            Choose file
+          </label>
+          <span id="draftFileName" class="text-xs ml-2" style="color:var(--text-tertiary);"></span>
+        </div>
+
+        <!-- State B: generating -->
+        <div id="draftStateGenerating" class="hidden flex flex-col items-center justify-center py-8 gap-3">
+          <div class="inline-block border-2 rounded-full animate-spin" style="border-color:var(--accent);border-top-color:transparent;width:32px;height:32px;"></div>
+          <div id="draftGeneratingMsg" class="text-sm" style="color:var(--text-secondary);">Drafting…</div>
+        </div>
+
+        <!-- State C: preview -->
+        <div id="draftStatePreview" class="hidden space-y-2">
+          <h3 class="text-sm font-semibold" style="color:var(--text-secondary);">AI-Generated Overview</h3>
+          <div id="draftPreviewText" class="text-sm rounded p-3 whitespace-pre-wrap" style="color:var(--text-secondary);background:var(--bg-surface-alt);border:1px solid var(--border-default);max-height:18rem;overflow-y:auto;"></div>
+          <p id="draftReplaceWarning" class="hidden text-xs" style="color:var(--status-high);">This will replace the text in the editor.</p>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" id="btnDraftCancel" class="px-4 py-2 rounded text-sm" style="background:var(--btn-neutral);color:var(--btn-neutral-text);border:1px solid var(--border-input);">Cancel</button>
+          <button type="button" id="btnDraftUse" class="hidden px-4 py-2 rounded text-sm font-medium" style="background:var(--accent);color:var(--text-on-accent);">Use this description</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

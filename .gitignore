@@ -1,0 +1,15 @@
+# Python / local env (do not commit secrets)
+.venv/
+__pycache__/
+*.py[cod]
+.env
+*.xlsx
+*.csv
+data/
+*.db
+.env
+.cursor/
+
+# Frontend build artifacts
+node_modules/
+frontend/styles-tailwind.css

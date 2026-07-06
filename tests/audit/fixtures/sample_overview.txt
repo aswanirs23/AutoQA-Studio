@@ -1,0 +1,7 @@
+Test Case Generator Agent is a developer tool that takes structured and
+unstructured product inputs (requirements text, Figma designs, Jira issues,
+screenshots, recorded browser sessions) and generates manual QA test cases.
+
+The product is used by QA engineers and product managers preparing test plans
+for new features. Each project is persistent and stored in SQLite. Outputs can
+be exported to Excel, CSV, JSON, Markdown, and TestRail-style CSV.

@@ -1,0 +1,384 @@
+/* ------------------------------------------------------------------ */
+/* Theme tokens: Glassmorphism (typeui.sh) — light (default) and dark */
+/* Brand: electric blue (#1856FF) + plum (#3A344E).                   */
+/* Surfaces: semi-transparent white/dark with backdrop blur.          */
+/* Page: multi-color radial gradient (aurora) for the blur to refract.*/
+/* Typography: Plus Jakarta Sans (body+display) + JetBrains Mono.     */
+/* ------------------------------------------------------------------ */
+:root {
+  /* Aurora background — colourful gradient that gives the blur something to show */
+  --bg-page:
+    radial-gradient(circle at 20% 10%, rgba(168,85,247,0.22), transparent 45%),
+    radial-gradient(circle at 80% 20%, rgba(24,86,255,0.20), transparent 45%),
+    radial-gradient(circle at 60% 85%, rgba(236,72,153,0.18), transparent 50%),
+    radial-gradient(circle at 10% 75%, rgba(34,211,238,0.18), transparent 45%),
+    #F4F6FB;
+  /* Frosted-glass surfaces */
+  --bg-surface: rgba(255,255,255,0.62);
+  --bg-surface-alt: rgba(255,255,255,0.42);
+  --bg-header: rgba(255,255,255,0.55);
+  --bg-sidebar: rgba(255,255,255,0.40);
+  --bg-input: rgba(255,255,255,0.55);
+  --bg-overlay: rgba(20,20,40,0.35);
+  --bg-hover: rgba(255,255,255,0.78);
+  --bg-hover-subtle: rgba(255,255,255,0.50);
+
+  --text-primary: #141414;
+  --text-secondary: #2A2A2A;
+  --text-tertiary: #4A4A55;
+  --text-muted: #6E6E78;
+  --text-on-accent: #ffffff;
+
+  /* Edge-light borders — bright rim per glassmorphism spec */
+  --border-default: rgba(255,255,255,0.45);
+  --border-input: rgba(255,255,255,0.55);
+  --border-subtle: rgba(255,255,255,0.30);
+
+  /* Primary: electric blue */
+  --accent: #1856FF;
+  --accent-hover: #0E40D9;
+  --accent-subtle: rgba(24,86,255,0.14);
+  --accent-text: #1856FF;
+  --accent-text-active: #0E40D9;
+
+  /* Secondary: muted plum */
+  --secondary: #3A344E;
+  --secondary-hover: #4D456A;
+  --secondary-subtle: rgba(58,52,78,0.14);
+  --secondary-text: #3A344E;
+
+  --btn-neutral: rgba(255,255,255,0.45);
+  --btn-neutral-hover: rgba(255,255,255,0.70);
+  --btn-neutral-text: #141414;
+
+  /* Status semantics per glassmorphism spec */
+  --status-high: #EA2143;          /* danger */
+  --status-high-bg: rgba(234,33,67,0.16);
+  --status-med: #E89558;           /* warning */
+  --status-med-bg: rgba(232,149,88,0.18);
+  --status-low: #07CA6B;           /* success */
+  --status-low-bg: rgba(7,202,107,0.16);
+
+  --chart-border: rgba(255,255,255,0.45);
+  --chart-tick: #4A4A55;
+}
+
+.dark {
+  /* Dark glassmorphism: deep navy/plum aurora + translucent dark surfaces */
+  --bg-page:
+    radial-gradient(circle at 20% 10%, rgba(99,102,241,0.30), transparent 45%),
+    radial-gradient(circle at 80% 20%, rgba(168,85,247,0.28), transparent 45%),
+    radial-gradient(circle at 60% 85%, rgba(236,72,153,0.22), transparent 50%),
+    radial-gradient(circle at 10% 75%, rgba(34,211,238,0.20), transparent 45%),
+    #0A0E1A;
+  --bg-surface: rgba(22,26,42,0.55);
+  --bg-surface-alt: rgba(22,26,42,0.40);
+  --bg-header: rgba(10,14,26,0.65);
+  --bg-sidebar: rgba(22,26,42,0.45);
+  --bg-input: rgba(10,14,26,0.55);
+  --bg-overlay: rgba(0,0,0,0.55);
+  --bg-hover: rgba(40,46,68,0.65);
+  --bg-hover-subtle: rgba(30,34,52,0.50);
+
+  --text-primary: #F4F6FB;
+  --text-secondary: #D0D4E2;
+  --text-tertiary: #A4ABBF;
+  --text-muted: #7E859B;
+  --text-on-accent: #ffffff;
+
+  --border-default: rgba(255,255,255,0.18);
+  --border-input: rgba(255,255,255,0.22);
+  --border-subtle: rgba(255,255,255,0.12);
+
+  --accent: #4F7CFF;
+  --accent-hover: #7099FF;
+  --accent-subtle: rgba(79,124,255,0.20);
+  --accent-text: #9FB8FF;
+  --accent-text-active: #C0CFFF;
+
+  --secondary: #8E84B0;
+  --secondary-hover: #ADA3CC;
+  --secondary-subtle: rgba(142,132,176,0.20);
+  --secondary-text: #B7ADD3;
+
+  --btn-neutral: rgba(255,255,255,0.10);
+  --btn-neutral-hover: rgba(255,255,255,0.18);
+  --btn-neutral-text: #F4F6FB;
+
+  --status-high: #FF526B;
+  --status-high-bg: rgba(234,33,67,0.20);
+  --status-med: #FFB07A;
+  --status-med-bg: rgba(232,149,88,0.22);
+  --status-low: #2FE08A;
+  --status-low-bg: rgba(7,202,107,0.20);
+
+  --chart-border: rgba(255,255,255,0.18);
+  --chart-tick: #A4ABBF;
+}
+
+/* ------------------------------------------------------------------ */
+/* Glassmorphism typography: Plus Jakarta Sans / JetBrains Mono       */
+/* ------------------------------------------------------------------ */
+:root {
+  --font-body: "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-display: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, monospace;
+}
+
+html, body {
+  font-family: var(--font-body);
+  font-feature-settings: "calt" 1, "liga" 1, "ss01" 1;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Anchor the aurora gradient to the viewport so blur sees a stable backdrop
+   while content scrolls. Critical for the glass effect to read correctly. */
+body {
+  background-attachment: fixed !important;
+  min-height: 100vh;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+button, [role="button"] {
+  font-family: var(--font-body);
+  font-weight: 500;
+}
+
+.font-mono,
+code, kbd, samp, pre {
+  font-family: var(--font-mono);
+}
+
+/* ------------------------------------------------------------------ */
+/* Glass effect: backdrop blur on any element referencing a surface    */
+/* token via inline style. Substring-matches the inline-style attr so  */
+/* every card, header, sidebar, and input picks up the blur without    */
+/* needing HTML changes.                                               */
+/* ------------------------------------------------------------------ */
+[style*="var(--bg-surface)"],
+[style*="var(--bg-surface-alt)"],
+[style*="var(--bg-header)"],
+[style*="var(--bg-sidebar)"],
+[style*="var(--bg-input)"] {
+  backdrop-filter: blur(18px) saturate(160%);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+}
+
+/* Modals + alert dialogs get heavier blur per the spec */
+[role="alertdialog"],
+[role="dialog"] {
+  backdrop-filter: blur(24px) saturate(170%);
+  -webkit-backdrop-filter: blur(24px) saturate(170%);
+}
+
+/* Modal CARDS (an element with --bg-surface nested inside an overlay) need
+   higher opacity than ambient surfaces because they sit over a dimmed grey
+   backdrop where the aurora gradient barely reaches. A bumped fill keeps the
+   modal looking like a consistent themed surface instead of an arbitrary
+   grey smear. Heavier blur, accent-tinted border, soft drop shadow with the
+   primary brand colour for the "premium glass" feel. */
+[style*="var(--bg-overlay)"] [style*="var(--bg-surface)"],
+[role="alertdialog"] {
+  background: rgba(255,255,255,0.88) !important;
+  border-color: rgba(255,255,255,0.70) !important;
+  box-shadow: 0 18px 50px rgba(24,86,255,0.14), 0 0 0 1px rgba(255,255,255,0.40) inset;
+}
+.dark [style*="var(--bg-overlay)"] [style*="var(--bg-surface)"],
+.dark [role="alertdialog"] {
+  background: rgba(22,26,42,0.85) !important;
+  border-color: rgba(255,255,255,0.20) !important;
+  box-shadow: 0 18px 50px rgba(0,0,0,0.40), 0 0 0 1px rgba(255,255,255,0.10) inset;
+}
+
+/* Floating menus (project switcher, etc.) aren't wrapped in an overlay, so
+   the ambient translucent --bg-surface lets page content bleed through. Force
+   an opaque fill on these popovers. */
+#projectSwitcherDropdown {
+  background: rgba(255,255,255,0.96) !important;
+  border-color: rgba(255,255,255,0.70) !important;
+  box-shadow: 0 18px 50px rgba(24,86,255,0.14), 0 0 0 1px rgba(255,255,255,0.40) inset;
+}
+.dark #projectSwitcherDropdown {
+  background: rgba(22,26,42,0.96) !important;
+  border-color: rgba(255,255,255,0.20) !important;
+  box-shadow: 0 18px 50px rgba(0,0,0,0.40), 0 0 0 1px rgba(255,255,255,0.10) inset;
+}
+
+/* Card radii per spec (medium = 8px) */
+.rounded-lg { border-radius: 8px; }
+.rounded-xl { border-radius: 12px; }
+
+/* ------------------------------------------------------------------ */
+/* Focus rings — replace the browser's default black outline with a   */
+/* soft accent halo that fits the glass aesthetic. Required by WCAG   */
+/* 2.2 AA (focus must remain clearly visible).                        */
+/* ------------------------------------------------------------------ */
+input:focus,
+input:focus-visible,
+textarea:focus,
+textarea:focus-visible,
+select:focus,
+select:focus-visible {
+  outline: none;
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 3px var(--accent-subtle);
+}
+
+/* Buttons keep a softer focus halo so the click target stays obvious
+   without the harsh native outline. */
+button:focus-visible,
+[role="button"]:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-subtle);
+}
+
+/* ------------------------------------------------------------------ */
+/* Dark toggle switch                                                  */
+/* ------------------------------------------------------------------ */
+.dark-toggle-track {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: 2.75rem;
+  height: 1.5rem;
+  border-radius: 9999px;
+  background: var(--border-input);
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.dark-toggle-track[aria-checked="true"] {
+  background: var(--accent);
+}
+.dark-toggle-knob {
+  display: inline-block;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 9999px;
+  background: #fff;
+  transition: transform 0.2s;
+  transform: translateX(0.25rem);
+}
+.dark-toggle-track[aria-checked="true"] .dark-toggle-knob {
+  transform: translateX(1.5rem);
+}
+
+/* ------------------------------------------------------------------ */
+/* Base resets                                                         */
+/* ------------------------------------------------------------------ */
+button,
+a[href],
+[role="button"],
+[role="switch"],
+summary,
+select,
+label[for],
+input[type="checkbox"],
+input[type="radio"],
+input[type="file"],
+.cursor-pointer {
+  cursor: pointer;
+}
+
+pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+#advancedLlm summary,
+#genAdvancedLlm summary,
+details > summary {
+  list-style: none;
+}
+#advancedLlm summary::-webkit-details-marker,
+#genAdvancedLlm summary::-webkit-details-marker,
+details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.accordion-chevron {
+  display: inline-flex;
+}
+
+details.adv-llm-details > summary .adv-chevron-open {
+  display: none;
+}
+details.adv-llm-details[open] > summary .adv-chevron-closed {
+  display: none;
+}
+details.adv-llm-details[open] > summary .adv-chevron-open {
+  display: inline-flex;
+}
+
+/* ------------------------------------------------------------------ */
+/* Dashboard: bar-track visualizations                                 */
+/* ------------------------------------------------------------------ */
+.dash-bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.dash-bar-label { font-size: 13px; color: var(--text-tertiary); min-width: 80px; }
+.dash-bar-track { flex: 1; height: 8px; background: var(--bg-hover); border-radius: 4px; overflow: hidden; }
+.dash-bar-fill { height: 100%; border-radius: 4px; }
+.dash-bar-count { font-size: 13px; font-weight: 500; color: var(--text-primary); min-width: 24px; text-align: right; }
+
+/* Dashboard: chart legends */
+.dash-legend { display: flex; flex-wrap: wrap; gap: 10px; font-size: 12px; color: var(--text-tertiary); }
+.dash-legend-item { display: flex; align-items: center; gap: 5px; }
+.dash-legend-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+
+/* Dashboard: priority pills */
+.dash-pill-high { background: var(--status-high-bg); color: var(--status-high); border-radius: 6px; padding: 6px 16px; font-size: 13px; font-weight: 500; }
+.dash-pill-med  { background: var(--status-med-bg); color: var(--status-med); border-radius: 6px; padding: 6px 16px; font-size: 13px; font-weight: 500; }
+.dash-pill-low  { background: var(--status-low-bg); color: var(--status-low); border-radius: 6px; padding: 6px 16px; font-size: 13px; font-weight: 500; }
+
+/* ------------------------------------------------------------------ */
+/* Dashboard: generation history timeline                              */
+/* ------------------------------------------------------------------ */
+.gh-root { padding: 1rem 0; }
+.gh-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem; }
+.gh-title { font-size: 13px; font-weight: 500; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.07em; margin: 0; }
+.gh-total { font-size: 12px; color: var(--text-muted); background: var(--bg-surface-alt); border-radius: 6px; padding: 3px 10px; }
+
+.gh-card { background: var(--bg-surface); border: 0.5px solid var(--border-default); border-radius: 12px; overflow: hidden; }
+
+.gh-item { display: grid; grid-template-columns: 36px 1fr auto; gap: 0 14px; align-items: start; padding: 14px 16px; }
+.gh-item + .gh-item { border-top: 0.5px solid var(--border-default); }
+
+.gh-icon-col { display: flex; flex-direction: column; align-items: center; padding-top: 2px; }
+.gh-icon { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.gh-line { width: 1px; background: var(--border-default); flex: 1; min-height: 20px; margin-top: 6px; }
+.gh-item:last-child .gh-line { display: none; }
+
+.gh-source-figma      { background: #EEEDFE; }
+.gh-source-jira       { background: #E6F1FB; }
+.gh-source-text       { background: #F1EFE8; }
+.gh-source-screenshot { background: #DCFCE7; }
+.gh-source-iterate    { background: #FEF3C7; }
+.gh-source-multi      { background: #F3F4F6; }
+
+.gh-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
+.gh-badge { font-size: 11px; font-weight: 500; border-radius: 4px; padding: 2px 8px; }
+.badge-figma      { background: #EEEDFE; color: #3C3489; }
+.badge-jira       { background: #E6F1FB; color: #0C447C; }
+.badge-text       { background: #F1EFE8; color: #444441; }
+.badge-screenshot { background: #DCFCE7; color: #166534; }
+.badge-iterate    { background: #FEF3C7; color: #92400E; }
+.badge-multi      { background: #F3F4F6; color: #4B5563; }
+.gh-time { font-size: 12px; color: var(--text-muted); }
+
+.gh-desc { font-size: 14px; color: var(--text-primary); margin: 0 0 6px; }
+.gh-meta { display: flex; gap: 8px; flex-wrap: wrap; }
+.gh-chip { font-size: 11px; color: var(--text-tertiary); background: var(--bg-surface-alt); border-radius: 4px; padding: 2px 8px; }
+
+.gh-count { font-size: 13px; font-weight: 500; color: var(--text-primary); white-space: nowrap; padding-top: 2px; }
+.gh-count-label { font-size: 11px; color: var(--text-muted); text-align: right; }
+
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}

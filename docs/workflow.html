@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>How AutoQA Studio Works</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+  :root {
+    --bg: #0b0f1a;
+    --bg-elev: #131a2a;
+    --bg-card: #1a2236;
+    --border: #28324a;
+    --border-strong: #3a465e;
+    --text: #e8ecf5;
+    --text-dim: #9aa6c0;
+    --text-mute: #6b7790;
+    --accent: #8b5cf6;
+    --accent-2: #06b6d4;
+    --accent-3: #f59e0b;
+    --critical: #ef4444;
+    --good: #10b981;
+    --pink: #ec4899;
+    --shadow: 0 6px 24px rgba(0,0,0,0.4);
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    font-size: 16px;
+  }
+  a { color: var(--accent-2); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code {
+    font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+    background: var(--bg-elev);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.9em;
+    border: 1px solid var(--border);
+  }
+
+  /* HERO */
+  .hero {
+    background: linear-gradient(135deg, #1a1e3a 0%, #2d1b4e 50%, #1a3a4a 100%);
+    padding: 80px 24px 60px;
+    text-align: center;
+    border-bottom: 1px solid var(--border);
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(circle at 20% 30%, rgba(139,92,246,0.15), transparent 50%),
+      radial-gradient(circle at 80% 70%, rgba(6,182,212,0.15), transparent 50%);
+    pointer-events: none;
+  }
+  .hero-content { position: relative; z-index: 1; max-width: 760px; margin: 0 auto; }
+  .hero h1 {
+    font-size: clamp(28px, 5vw, 44px);
+    font-weight: 800;
+    margin: 0 0 16px;
+    background: linear-gradient(135deg, #8b5cf6, #06b6d4);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    letter-spacing: -0.02em;
+  }
+  .hero p {
+    font-size: clamp(15px, 2vw, 18px);
+    color: var(--text-dim);
+    margin: 0;
+  }
+  .hero-badge {
+    display: inline-block;
+    background: rgba(139,92,246,0.15);
+    color: #c4b5fd;
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 20px;
+    border: 1px solid rgba(139,92,246,0.3);
+  }
+
+  /* LAYOUT */
+  .container {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    max-width: 1200px;
+    margin: 0 auto;
+    gap: 40px;
+    padding: 40px 24px;
+  }
+  @media (max-width: 900px) {
+    .container { grid-template-columns: 1fr; padding: 24px 16px; }
+    .toc { position: static !important; }
+  }
+
+  /* TOC */
+  .toc {
+    position: sticky;
+    top: 24px;
+    align-self: start;
+    padding: 16px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    font-size: 14px;
+  }
+  .toc-title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-mute);
+    margin: 0 0 12px;
+  }
+  .toc ul { list-style: none; padding: 0; margin: 0; }
+  .toc li { margin: 0; }
+  .toc a {
+    display: block;
+    padding: 7px 10px;
+    color: var(--text-dim);
+    border-radius: 6px;
+    transition: all 0.15s;
+    text-decoration: none;
+  }
+  .toc a:hover {
+    background: var(--bg-card);
+    color: var(--text);
+    text-decoration: none;
+  }
+  .toc-num {
+    display: inline-block;
+    width: 22px;
+    height: 22px;
+    background: var(--bg-card);
+    border-radius: 6px;
+    text-align: center;
+    line-height: 22px;
+    font-weight: 700;
+    font-size: 11px;
+    color: var(--accent-2);
+    margin-right: 8px;
+  }
+
+  /* SECTIONS */
+  main { min-width: 0; }
+  section { margin-bottom: 48px; scroll-margin-top: 24px; }
+  section > h2 {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 24px;
+    font-weight: 700;
+    margin: 0 0 16px;
+    letter-spacing: -0.01em;
+  }
+  .stage-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    color: white;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 800;
+  }
+  section > p {
+    color: var(--text-dim);
+    margin: 0 0 16px;
+    font-size: 15px;
+  }
+  .lead {
+    font-size: 17px;
+    color: var(--text);
+    margin: 0 0 24px;
+  }
+
+  /* CARD */
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin: 16px 0;
+    box-shadow: var(--shadow);
+  }
+  .card.hint {
+    border-left: 3px solid var(--accent);
+    background: linear-gradient(90deg, rgba(139,92,246,0.06), transparent);
+  }
+  .card.tip {
+    border-left: 3px solid var(--accent-2);
+    background: linear-gradient(90deg, rgba(6,182,212,0.06), transparent);
+  }
+  .card.warn {
+    border-left: 3px solid var(--accent-3);
+    background: linear-gradient(90deg, rgba(245,158,11,0.06), transparent);
+  }
+
+  /* MERMAID WRAPPER */
+  .mermaid-wrap {
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    margin: 20px 0;
+    overflow-x: auto;
+  }
+  .mermaid {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    min-height: 80px;
+  }
+  .mermaid svg {
+    max-width: 100%;
+    width: 100% !important;
+    height: auto !important;
+    font-size: 15px !important;
+  }
+  /* Make node labels readable */
+  .mermaid .nodeLabel,
+  .mermaid .edgeLabel,
+  .mermaid .cluster-label {
+    font-size: 14px !important;
+    font-family: 'Inter', system-ui, sans-serif !important;
+  }
+
+  /* TABLE */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    background: var(--bg-card);
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+  th, td {
+    text-align: left;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    font-size: 14px;
+  }
+  th {
+    background: var(--bg-elev);
+    color: var(--text-mute);
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+
+  /* TIER ROW (priority ladder visualisation) */
+  .tier-ladder {
+    display: grid;
+    gap: 10px;
+    margin: 20px 0;
+  }
+  .tier {
+    display: grid;
+    grid-template-columns: 60px 1fr;
+    align-items: center;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 18px;
+    border-left-width: 4px;
+  }
+  .tier-num {
+    font-weight: 800;
+    font-size: 22px;
+    color: var(--text-mute);
+  }
+  .tier-body { display: flex; flex-direction: column; gap: 4px; }
+  .tier-title { font-weight: 600; color: var(--text); }
+  .tier-example { font-size: 13px; color: var(--text-dim); font-family: 'JetBrains Mono', ui-monospace, monospace; }
+  .tier.t1 { border-left-color: var(--critical); }
+  .tier.t2 { border-left-color: var(--accent-3); }
+  .tier.t3 { border-left-color: var(--accent); }
+  .tier.t4 { border-left-color: var(--accent-2); }
+  .tier.t5 { border-left-color: var(--good); }
+
+  /* TAGS */
+  .tag {
+    display: inline-block;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    margin-right: 4px;
+  }
+  .tag.jira { color: #93c5fd; border-color: #3b82f6; background: rgba(59,130,246,0.1); }
+  .tag.figma { color: #c4b5fd; border-color: #8b5cf6; background: rgba(139,92,246,0.1); }
+  .tag.screenshot { color: #6ee7b7; border-color: #10b981; background: rgba(16,185,129,0.1); }
+  .tag.text { color: #fcd34d; border-color: #f59e0b; background: rgba(245,158,11,0.1); }
+
+  /* FOOTER */
+  footer {
+    text-align: center;
+    padding: 30px 16px;
+    color: var(--text-mute);
+    font-size: 13px;
+    border-top: 1px solid var(--border);
+    margin-top: 40px;
+  }
+
+  /* DETAILS (collapsible behind-the-scenes) */
+  details {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 0;
+    margin: 16px 0;
+    overflow: hidden;
+  }
+  details > summary {
+    padding: 14px 20px;
+    cursor: pointer;
+    list-style: none;
+    font-weight: 600;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    user-select: none;
+  }
+  details > summary::after {
+    content: '+';
+    margin-left: auto;
+    font-size: 20px;
+    color: var(--text-mute);
+    transition: transform 0.2s;
+  }
+  details[open] > summary::after { content: '−'; }
+  details[open] > summary { border-bottom: 1px solid var(--border); }
+  details > *:not(summary) { padding-left: 20px; padding-right: 20px; }
+  details > .mermaid-wrap { margin-top: 16px; margin-bottom: 16px; }
+
+  /* MISC */
+  ul.clean { padding-left: 20px; color: var(--text-dim); }
+  ul.clean li { margin: 6px 0; }
+  ul.clean li strong { color: var(--text); }
+  hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 32px 0;
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="hero-content">
+    <span class="hero-badge">📘 Onboarding Guide</span>
+    <h1>How AutoQA Studio Works</h1>
+    <p>Turn Jira tickets, Figma designs, screenshots, or plain-text requirements into structured, priority-ordered manual test cases — powered by an LLM prompted as a senior QA engineer.</p>
+  </div>
+</header>
+
+<div class="container">
+  <!-- TABLE OF CONTENTS -->
+  <nav class="toc">
+    <p class="toc-title">On this page</p>
+    <ul>
+      <li><a href="#overview"><span class="toc-num">★</span>At a glance</a></li>
+      <li><a href="#stage-1"><span class="toc-num">1</span>Create a Project</a></li>
+      <li><a href="#stage-2"><span class="toc-num">2</span>Add a Feature</a></li>
+      <li><a href="#stage-3"><span class="toc-num">3</span>Provide Input</a></li>
+      <li><a href="#stage-4"><span class="toc-num">4</span>AI generates</a></li>
+      <li><a href="#stage-5"><span class="toc-num">5</span>Review &amp; iterate</a></li>
+      <li><a href="#behind"><span class="toc-num">⚙</span>Behind the scenes</a></li>
+      <li><a href="#cheatsheet"><span class="toc-num">✓</span>Cheat sheet</a></li>
+    </ul>
+  </nav>
+
+  <main>
+    <!-- AT A GLANCE -->
+    <section id="overview">
+      <h2><span class="stage-num">★</span>At a glance</h2>
+      <p class="lead">Five stages, end to end. Each is explained below.</p>
+      <div class="mermaid-wrap">
+        <div class="mermaid">
+flowchart LR
+    U([👤 You])
+    P[📁 Create<br/>Project]
+    F[🎯 Add<br/>Feature]
+    I[📥 Provide<br/>Inputs]
+    AI{{🧠 AI generates<br/>test cases}}
+    R[📋 Review<br/>Iterate / Run]
+    U --> P --> F --> I --> AI --> R
+    R -. iterate .-> AI
+    classDef user fill:#3b82f6,color:#fff,stroke:#1e40af,stroke-width:2px
+    classDef step fill:#06b6d4,color:#fff,stroke:#0e7490,stroke-width:2px
+    classDef ai fill:#8b5cf6,color:#fff,stroke:#6d28d9,stroke-width:2px
+    classDef view fill:#f59e0b,color:#fff,stroke:#b45309,stroke-width:2px
+    class U user
+    class P,F,I step
+    class AI ai
+    class R view
+        </div>
+      </div>
+    </section>
+
+    <!-- STAGE 1 -->
+    <section id="stage-1">
+      <h2><span class="stage-num">1</span>Create a Project</h2>
+      <p>A project is your workspace. Give it a name and — most importantly — a <strong>description</strong>. The description is sent to the AI on every generation, so the model stays grounded in your domain rules, compliance constraints, and product context.</p>
+      <div class="card hint">
+        <strong>💡 Example description</strong><br>
+        <em>"HIPAA-regulated patient portal — every action must log to an audit trail. User roles: Patient, Provider, Admin."</em>
+      </div>
+      <p>You can also generate the description automatically by uploading a PRD or product-overview document.</p>
+    </section>
+
+    <!-- STAGE 2 -->
+    <section id="stage-2">
+      <h2><span class="stage-num">2</span>Add a Feature</h2>
+      <p>Features group test cases inside a project. Add one per UI flow you want to test:</p>
+      <ul class="clean">
+        <li><code>Login</code></li>
+        <li><code>Checkout</code></li>
+        <li><code>User profile</code></li>
+        <li><code>Search &amp; filter</code></li>
+      </ul>
+      <p>Features are lightweight — name only. The interesting metadata lives on the test cases and the generation history.</p>
+    </section>
+
+    <!-- STAGE 3 -->
+    <section id="stage-3">
+      <h2><span class="stage-num">3</span>Provide Input</h2>
+      <p>Pick one or more input sources. Multi-input is the norm — Jira ticket <em>plus</em> a Figma frame <em>plus</em> a screenshot is a common pattern.</p>
+      <div class="mermaid-wrap">
+        <div class="mermaid">
+flowchart TB
+    subgraph SRC[" Input sources — combine any number "]
+        direction LR
+        J[📋 <b>Jira ticket</b><br/>URL → AC, description]
+        FG[🎨 <b>Figma URL</b><br/>frame → specs, prototype, copy]
+        SS[📷 <b>Screenshot</b><br/>image → vision model extracts UI]
+        TX[✏️ <b>Free-form text</b><br/>paste requirements]
+    end
+    classDef input fill:#06b6d4,color:#fff,stroke:#0e7490,stroke-width:2px
+    class J,FG,SS,TX input
+        </div>
+      </div>
+      <p><strong>How the AI weights each source:</strong></p>
+      <table>
+        <thead>
+          <tr><th>Source</th><th>Best for</th><th>How the AI uses it</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="tag jira">📋 Jira</span></td>
+            <td>Acceptance criteria, PRDs in tickets</td>
+            <td>Trusts the issue is fully scoped — tests every AC, no scope drift</td>
+          </tr>
+          <tr>
+            <td><span class="tag figma">🎨 Figma</span></td>
+            <td>UI specs with prototype interactions</td>
+            <td>Uses element names <em>verbatim</em> (devs build close to design = real selectors)</td>
+          </tr>
+          <tr>
+            <td><span class="tag screenshot">📷 Screenshot</span></td>
+            <td>The actual built app</td>
+            <td>Treats every visible label as a real Playwright target</td>
+          </tr>
+          <tr>
+            <td><span class="tag text">✏️ Text</span></td>
+            <td>Quick PRDs, inline requirements</td>
+            <td>Tests exactly what's described, nothing more</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="card tip">
+        <strong>ℹ️ Multi-source rule of thumb:</strong> <em>Jira / text describe <strong>what</strong> the feature must do. Figma / screenshot describe <strong>how</strong> it looks.</em> Combine them for the best coverage.
+      </div>
+    </section>
+
+    <!-- STAGE 4 -->
+    <section id="stage-4">
+      <h2><span class="stage-num">4</span>AI Generates Test Cases</h2>
+      <div class="mermaid-wrap">
+        <div class="mermaid">
+flowchart LR
+    subgraph IN[" Inputs to the prompt "]
+        direction TB
+        PD[📁 Project description]
+        DC[📥 Parsed sources<br/>= DESIGN CONTEXT]
+        TF[🎯 Target feature name]
+        EX[📋 Existing tests<br/>for dedup]
+    end
+    AI{{🧠 <b>LLM</b><br/>senior-QA system prompt<br/>5-step methodology}}
+    DEDUP{🔍 Dedup vs<br/>existing tests}
+    OUT[(💾 Test cases<br/>+ generation record<br/>+ source inputs)]
+    IN --> AI --> DEDUP --> OUT
+    classDef input fill:#06b6d4,color:#fff,stroke:#0e7490,stroke-width:2px
+    classDef ai fill:#8b5cf6,color:#fff,stroke:#6d28d9,stroke-width:2px
+    classDef store fill:#10b981,color:#fff,stroke:#047857,stroke-width:2px
+    class PD,DC,TF,EX input
+    class AI,DEDUP ai
+    class OUT store
+        </div>
+      </div>
+      <h3 style="margin-top:32px;font-size:18px;">The "critical-path first" ordering</h3>
+      <p>The AI is told to think like a senior QA lead: <em>"What is the ONE test that, if it failed, would mean the feature is broken end-to-end?"</em> That test becomes <strong>index 0</strong> of the array. The rest follow in descending criticality:</p>
+      <div class="tier-ladder">
+        <div class="tier t1">
+          <div class="tier-num">1</div>
+          <div class="tier-body">
+            <div class="tier-title">Critical happy path</div>
+            <div class="tier-example">valid creds → Sign in → verify logged in</div>
+          </div>
+        </div>
+        <div class="tier t2">
+          <div class="tier-num">2</div>
+          <div class="tier-body">
+            <div class="tier-title">Critical negative paths</div>
+            <div class="tier-example">wrong password → error shown</div>
+          </div>
+        </div>
+        <div class="tier t3">
+          <div class="tier-num">3</div>
+          <div class="tier-body">
+            <div class="tier-title">Secondary user journeys</div>
+            <div class="tier-example">forgot password, remember me, sign-up nav</div>
+          </div>
+        </div>
+        <div class="tier t4">
+          <div class="tier-num">4</div>
+          <div class="tier-body">
+            <div class="tier-title">UI verification</div>
+            <div class="tier-example">labels, placeholders, button states, colors</div>
+          </div>
+        </div>
+        <div class="tier t5">
+          <div class="tier-num">5</div>
+          <div class="tier-body">
+            <div class="tier-title">Edge cases</div>
+            <div class="tier-example">max length, special chars, rapid clicks</div>
+          </div>
+        </div>
+      </div>
+      <div class="card warn">
+        <strong>🎚 Type filter?</strong> If you filter to a single type (e.g. <em>smoke only</em>), the AI still orders within that filter by criticality. The first smoke test for a login feature is the visibility of the <code>Sign in</code> button — not the brand logo.
+      </div>
+    </section>
+
+    <!-- STAGE 5 -->
+    <section id="stage-5">
+      <h2><span class="stage-num">5</span>Review, Iterate, Run</h2>
+      <p>Click into any feature from the project view to open the <strong>Feature Details</strong> page.</p>
+      <div class="mermaid-wrap">
+        <div class="mermaid">
+flowchart LR
+    F[📂 <b>Feature Details</b>]
+    subgraph TABS[" Two tabs "]
+        direction TB
+        T1[📋 <b>Test Cases</b><br/>flat list · edit / delete / select]
+        T2[🕒 <b>Generations</b><br/>history of generate/iterate runs<br/>inputs ↔ outputs · read-only]
+    end
+    F --> T1
+    F --> T2
+    T1 --> ITER[♻️ <b>Iterate</b><br/>describe what to add]
+    ITER --> AI[🧠 AI adds<br/>non-duplicate tests]
+    AI --> T1
+    T1 --> RUN[▶️ <b>Run with Playwright</b><br/>auto-generates test code]
+    classDef view fill:#f59e0b,color:#fff,stroke:#b45309,stroke-width:2px
+    classDef user fill:#3b82f6,color:#fff,stroke:#1e40af,stroke-width:2px
+    classDef ai fill:#8b5cf6,color:#fff,stroke:#6d28d9,stroke-width:2px
+    classDef run fill:#ec4899,color:#fff,stroke:#9f1239,stroke-width:2px
+    class F,T1,T2 view
+    class ITER user
+    class AI ai
+    class RUN run
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 style="margin:0 0 8px;font-size:16px;">📋 Test Cases tab</h3>
+        <p style="margin:0;color:var(--text-dim);">Flat list. Each row has title, steps, expected result, priority, type. Edit inline, delete, multi-select for bulk operations.</p>
+      </div>
+
+      <div class="card">
+        <h3 style="margin:0 0 8px;font-size:16px;">🕒 Generations tab</h3>
+        <p style="margin:0 0 10px;color:var(--text-dim);"><strong>Read-only audit trail.</strong> Each card = one generate or iterate run. Shows:</p>
+        <ul class="clean" style="margin:0;">
+          <li><strong>When</strong> — timestamp</li>
+          <li><strong>Trigger</strong> — <code>generate</code> or <code>iterate</code></li>
+          <li><strong>Inputs</strong> — Jira URL / Figma URL / screenshot thumbnails / text snippets you submitted</li>
+          <li><strong>Outputs</strong> — the test cases this run produced (click a title to jump to it)</li>
+        </ul>
+        <p style="margin:10px 0 0;color:var(--text-dim);font-size:14px;">When you delete all test cases from a generation, its card disappears automatically (soft hide — DB row remains).</p>
+      </div>
+
+      <div class="card">
+        <h3 style="margin:0 0 8px;font-size:16px;">♻️ Iterate</h3>
+        <p style="margin:0;color:var(--text-dim);">Click <em>Iterate</em> on a feature → describe what to add (<em>"add more edge cases for password rules"</em>) → the AI generates non-duplicate tests scoped to your instruction. Same priority-first ordering applies within your filter.</p>
+      </div>
+
+      <div class="card">
+        <h3 style="margin:0 0 8px;font-size:16px;">▶️ Run with Playwright <span style="color:var(--text-mute);font-weight:400;font-size:13px;">(optional)</span></h3>
+        <p style="margin:0;color:var(--text-dim);">For any test case, hit <strong>Run</strong> to send it to the Playwright runner. The app converts your manual steps into Python code (<code>page.get_by_role(...)</code>, etc.) and executes it against a base URL. Last-run status (✅ passed / ❌ failed / ⚠️ error) is shown on the test row.</p>
+      </div>
+    </section>
+
+    <!-- BEHIND THE SCENES -->
+    <section id="behind">
+      <h2><span class="stage-num">⚙</span>Behind the scenes</h2>
+      <details>
+        <summary>System architecture (click to expand)</summary>
+        <div class="mermaid-wrap">
+          <div class="mermaid">
+flowchart TB
+    subgraph FE[" 🖥️ Frontend "]
+        UI[index.html + app.js<br/>vanilla JS, hash routing]
+    end
+    subgraph BE[" ⚙️ Backend - FastAPI "]
+        direction TB
+        R[routers/<br/>auth, projects, features,<br/>generate, parsers, export]
+        S[services/<br/>parsers, llm_service,<br/>playwright_runner, dedup]
+        REPO[repositories/<br/>SQL via aiosqlite]
+    end
+    subgraph DATA[" 💾 Storage "]
+        direction LR
+        DB[(SQLite<br/>data/testgen.db)]
+        DISK[(Disk<br/>data/generations/<br/>screenshot bytes)]
+    end
+    LLM[(🧠 LLM provider<br/>OpenAI · Anthropic · Gemini)]
+    UI <--> R
+    R --> S
+    S --> REPO
+    REPO --> DB
+    S --> DISK
+    S --> LLM
+    classDef fe fill:#3b82f6,color:#fff,stroke:#1e40af,stroke-width:2px
+    classDef be fill:#8b5cf6,color:#fff,stroke:#6d28d9,stroke-width:2px
+    classDef store fill:#10b981,color:#fff,stroke:#047857,stroke-width:2px
+    classDef ext fill:#f59e0b,color:#fff,stroke:#b45309,stroke-width:2px
+    class UI fe
+    class R,S,REPO be
+    class DB,DISK store
+    class LLM ext
+          </div>
+        </div>
+        <ul class="clean">
+          <li><strong>Frontend</strong> is a single HTML page + single <code>app.js</code>. No build step, no framework.</li>
+          <li><strong>Backend</strong> is FastAPI with async SQLite. Generation runs on the request thread; LLM calls use <code>asyncio.to_thread</code> where the provider SDK is synchronous (Gemini).</li>
+          <li><strong>LLM provider</strong> is chosen per-call from the UI or settings. API keys are stored only in local SQLite — never read from <code>.env</code>.</li>
+        </ul>
+      </details>
+    </section>
+
+    <!-- CHEAT SHEET -->
+    <section id="cheatsheet">
+      <h2><span class="stage-num">✓</span>Cheat sheet</h2>
+      <table>
+        <thead><tr><th>I want to…</th><th>Do this</th></tr></thead>
+        <tbody>
+          <tr><td>Add a new project</td><td>Top-right <em>+ New Project</em></td></tr>
+          <tr><td>Edit project description</td><td>Click ✏️ on the Project Overview page</td></tr>
+          <tr><td>Generate tests for a feature</td><td>Click <em>Generate</em> on the feature row</td></tr>
+          <tr><td>Add more tests later</td><td>Click <em>Iterate</em> on the feature row</td></tr>
+          <tr><td>See what inputs produced what tests</td><td>Open the feature → <strong>Generations</strong> tab</td></tr>
+          <tr><td>Run tests against a real app</td><td>Set base URL in project settings → click <em>Run</em> on a test row</td></tr>
+          <tr><td>Filter generated tests to one type</td><td>Use the <em>Preferred Types</em> picker before generating</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+</div>
+
+<footer>
+  Built with 🧪 AutoQA Studio · <a href="WORKFLOW.md">View as Markdown</a>
+</footer>
+
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'dark',
+    securityLevel: 'loose',
+    flowchart: { useMaxWidth: true, htmlLabels: true, curve: 'basis', nodeSpacing: 50, rankSpacing: 60 },
+    themeVariables: {
+      darkMode: true,
+      background: '#131a2a',
+      mainBkg: '#1a2236',
+      primaryColor: '#1a2236',
+      primaryTextColor: '#e8ecf5',
+      primaryBorderColor: '#3a465e',
+      lineColor: '#6b7790',
+      secondaryColor: '#28324a',
+      tertiaryColor: '#131a2a',
+      clusterBkg: '#131a2a',
+      clusterBorder: '#28324a',
+      fontFamily: 'Inter, system-ui, sans-serif',
+    }
+  });
+</script>
+
+</body>
+</html>
