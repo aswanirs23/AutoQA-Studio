@@ -382,3 +382,64 @@ details.adv-llm-details[open] > summary .adv-chevron-open {
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+
+/* --- Mobile navigation drawer ---
+   On desktop the sidebar is a static column; below the lg breakpoint it
+   becomes an off-canvas drawer toggled by the header hamburger button. */
+#btnSidebarToggle { display: none; }
+#sidebarBackdrop { display: none; }
+
+@media (max-width: 1023px) {
+  /* Hamburger only appears inside the project workspace shell. */
+  body.in-workspace #btnSidebarToggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  #viewWorkspace #sidebar {
+    position: fixed;
+    top: 3.5rem;            /* clears the 56px sticky header */
+    left: 0;
+    bottom: 0;
+    width: 15rem;
+    z-index: 45;
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+    overflow-y: auto;
+  }
+  #viewWorkspace #sidebar.sidebar-open {
+    transform: translateX(0);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  }
+
+  #sidebarBackdrop.sidebar-open {
+    display: block;
+    position: fixed;
+    inset: 3.5rem 0 0 0;
+    background: rgba(0, 0, 0, 0.45);
+    z-index: 40;
+  }
+}
+
+/* Small inline spinner (e.g. while auto-execute code is being generated). */
+.autoqa-spinner {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--border-input);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: autoqa-spin 0.7s linear infinite;
+}
+@keyframes autoqa-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* On very small screens, free up header space so the project switcher and
+   the dark-mode toggle don't collide: drop the "Dark" text label (the toggle
+   remains) and cap the switcher so it truncates cleanly. */
+@media (max-width: 640px) {
+  #darkLabel { display: none; }
+  #projectSwitcherBtn { max-width: 120px; }
+}

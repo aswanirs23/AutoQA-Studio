@@ -315,6 +315,9 @@ function showShell(which) {
   el("viewProjectList")?.classList.toggle("hidden", which !== "home");
   el("viewWorkspace")?.classList.toggle("hidden", which !== "workspace");
   el("projectSwitcherWrap")?.classList.toggle("hidden", which !== "workspace");
+  // Drives visibility of the mobile hamburger (see styles.css).
+  document.body.classList.toggle("in-workspace", which === "workspace");
+  if (which !== "workspace") closeSidebarMobile();
 }
 function updateSidebarLinks(projectId) {
   document.querySelectorAll("#sidebarNav a[data-sub]").forEach((a) => { a.href = `#/project/${projectId}/${a.getAttribute("data-sub")}`; });
@@ -346,8 +349,14 @@ function showWorkspaceSection(sub) {
   if (sub !== "tests") el("bulkActionsBar")?.classList.add("hidden");
   else if (typeof updateBulkBar === "function") updateBulkBar();
 }
-function openSidebarMobile() {}
-function closeSidebarMobile() {}
+function openSidebarMobile() {
+  el("sidebar")?.classList.add("sidebar-open");
+  el("sidebarBackdrop")?.classList.add("sidebar-open");
+}
+function closeSidebarMobile() {
+  el("sidebar")?.classList.remove("sidebar-open");
+  el("sidebarBackdrop")?.classList.remove("sidebar-open");
+}
 
 async function handleRoute() {
   const route = parseRoute();
@@ -1192,41 +1201,72 @@ async function openAutoExecModal() {
   el("autoExecResult").classList.add("hidden");
   el("autoExecResult").innerHTML = "";
   el("autoExecHeaded").checked = false;
-  el("btnAutoExecRun").disabled = true;
-  el("btnAutoExecRun").textContent = "Generating...";
   el("autoExecModal")?.classList.remove("hidden");
 
-  // Generate code
+  // Load code: the backend returns previously stored code without an LLM call,
+  // and only generates (once) when nothing is stored yet.
+  setAutoExecGenerating(true);
   try {
     const resp = await fetchJSON(`/api/projects/${currentProjectId}/test-cases/${encodeURIComponent(tcId)}/generate-playwright`, {
       method: "POST",
       body: JSON.stringify({}),
     });
     el("autoExecCode").value = resp.code || "";
-    el("btnAutoExecRun").disabled = false;
-    el("btnAutoExecRun").innerHTML = "&#9654; Run";
+    if (tc) tc.playwright_code = resp.code || "";
   } catch (e) {
     el("autoExecCode").value = "// Failed to generate code: " + String(e.message || e);
-    el("btnAutoExecRun").disabled = false;
-    el("btnAutoExecRun").innerHTML = "&#9654; Run";
+  } finally {
+    setAutoExecGenerating(false);
   }
+}
+
+// Toggle the generating spinner + button state in the auto-execute modal.
+function setAutoExecGenerating(on) {
+  el("autoExecCodeLoading")?.classList.toggle("hidden", !on);
+  const run = el("btnAutoExecRun");
+  const save = el("btnAutoExecSave");
+  const regen = el("btnAutoExecRegenerate");
+  if (run) { run.disabled = on; run.innerHTML = on ? "Generating..." : "&#9654; Run"; }
+  if (save) save.disabled = on;
+  if (regen) regen.disabled = on;
 }
 
 async function regenerateAutoExecCode() {
   const tcId = el("tcDetailTcId")?.value;
   if (!tcId || !currentProjectId) return;
-  el("btnAutoExecRun").disabled = true;
-  el("btnAutoExecRun").textContent = "Generating...";
+  setAutoExecGenerating(true);
   try {
     const resp = await fetchJSON(`/api/projects/${currentProjectId}/test-cases/${encodeURIComponent(tcId)}/generate-playwright`, {
-      method: "POST", body: JSON.stringify({}),
+      method: "POST", body: JSON.stringify({ regenerate: true }),
     });
     el("autoExecCode").value = resp.code || "";
+    const tc = lastLoadedCases.find(c => c.id === tcId);
+    if (tc) tc.playwright_code = resp.code || "";
+    showToast("Code regenerated.");
   } catch (e) {
     showToast(String(e.message || e), true);
   } finally {
-    el("btnAutoExecRun").disabled = false;
-    el("btnAutoExecRun").innerHTML = "&#9654; Run";
+    setAutoExecGenerating(false);
+  }
+}
+
+async function saveAutoExecCode() {
+  const tcId = el("tcDetailTcId")?.value;
+  if (!tcId || !currentProjectId) return;
+  const code = el("autoExecCode")?.value || "";
+  const btn = el("btnAutoExecSave");
+  if (btn) { btn.disabled = true; btn.textContent = "Saving..."; }
+  try {
+    await fetchJSON(`/api/projects/${currentProjectId}/test-cases/${encodeURIComponent(tcId)}/save-playwright`, {
+      method: "POST", body: JSON.stringify({ code }),
+    });
+    const tc = lastLoadedCases.find(c => c.id === tcId);
+    if (tc) tc.playwright_code = code;
+    showToast("Code saved.");
+  } catch (e) {
+    showToast(String(e.message || e), true);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = "Save code"; }
   }
 }
 
@@ -1252,6 +1292,7 @@ async function runAutoExec() {
       if (tc) {
         tc.last_run_status = resp.status;
         tc.last_run_at = new Date().toISOString();
+        tc.playwright_code = code;  // backend persists the run code; keep cache in sync
         renderFeatureAccordions();
       }
     }
@@ -3206,6 +3247,12 @@ el("draftModal")?.addEventListener("click", (e) => { if (e.target === el("draftM
 el("btnBulkDelete")?.addEventListener("click", () => bulkDeleteSelected().catch(e => showToast(String(e.message || e), true)));
 el("btnBulkClear")?.addEventListener("click", clearBulkSelection);
 
+el("btnSidebarToggle")?.addEventListener("click", () => {
+  if (el("sidebar")?.classList.contains("sidebar-open")) closeSidebarMobile();
+  else openSidebarMobile();
+});
+el("sidebarBackdrop")?.addEventListener("click", closeSidebarMobile);
+
 el("btnNewFeature")?.addEventListener("click", openFeatureModal);
 el("btnCloseFeatureModal")?.addEventListener("click", () => el("featureModal")?.classList.add("hidden"));
 el("btnFeatureModalCancel")?.addEventListener("click", () => el("featureModal")?.classList.add("hidden"));
@@ -3245,6 +3292,7 @@ el("btnCloseAutoExecModal")?.addEventListener("click", () => el("autoExecModal")
 el("btnAutoExecCancel")?.addEventListener("click", () => el("autoExecModal")?.classList.add("hidden"));
 el("autoExecModal")?.addEventListener("click", (e) => { if (e.target === el("autoExecModal")) el("autoExecModal")?.classList.add("hidden"); });
 el("btnAutoExecRegenerate")?.addEventListener("click", () => regenerateAutoExecCode().catch(e => showToast(String(e.message || e), true)));
+el("btnAutoExecSave")?.addEventListener("click", () => saveAutoExecCode().catch(e => showToast(String(e.message || e), true)));
 el("btnAutoExecRun")?.addEventListener("click", () => runAutoExec());
 
 el("btnCloseAdaptExpectedModal")?.addEventListener("click", closeAdaptExpectedModal);

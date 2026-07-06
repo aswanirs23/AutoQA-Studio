@@ -19,16 +19,41 @@ The single-page frontend (Tailwind CSS + vanilla JS) provides:
 - Python 3.11+
 - At least one LLM API key: **OpenAI**, **Anthropic**, and/or **Google Gemini**
 
-## Setup
+## Quick start (Linux/macOS)
+
+The fastest way to run the app. [start.sh](start.sh) handles installing deps, building the Tailwind CSS, and launching the server for you — you only create the venv and add an API key once:
 
 ```bash
-cd testgen-ai
+git clone https://github.com/aswanirs23/AutoQA-Studio.git
+cd AutoQA-Studio
+
+python3 -m venv .venv        # one-time
+cp .env.example .env         # then edit .env and add at least one LLM API key
+
+./start.sh                   # installs deps, builds CSS, runs on http://localhost:8080
+```
+
+Then open **http://localhost:8080/**. On re-runs just `./start.sh` again — it re-uses the existing `.venv`.
+
+## Manual setup (Windows / cross-platform)
+
+Prefer explicit steps, or on Windows where `start.sh` doesn't run? Do it by hand:
+
+```bash
+git clone https://github.com/aswanirs23/AutoQA-Studio.git
+cd AutoQA-Studio
+
 python -m venv .venv
 .venv\Scripts\activate          # Windows
 # source .venv/bin/activate     # macOS/Linux
 
 pip install -r requirements.txt
 copy .env.example .env          # then edit .env
+
+# Optional — build the Tailwind CSS. Skip for local dev (Tailwind loads via
+# CDN in the browser); required for production or after adding new CSS classes.
+npm install
+npm run build:css
 ```
 
 ### Environment variables
@@ -69,15 +94,7 @@ Open **http://127.0.0.1:8080/** for the web UI, or **http://127.0.0.1:8080/docs*
 
 The UI loads parser tabs (Manual text, Figma, Jira, Screenshot, Browser Session) from `GET /api/parsers`. If you run the frontend from a separate dev server (e.g. Vite on 5173, Live Server on 5500), the script auto-detects the API at `http://127.0.0.1:8080`, or set `localStorage.tcg_api_base` manually.
 
-### Quick start (Linux/macOS)
-
-After the one-time `python -m venv .venv` step, [start.sh](start.sh) wraps the activate → install → build CSS → uvicorn sequence:
-
-```bash
-./start.sh
-```
-
-It activates `.venv`, installs `requirements.txt` + npm deps, rebuilds Tailwind CSS, and launches uvicorn on `0.0.0.0:8080`. Run it from the project root.
+> **Tip:** on Linux/macOS you can skip the manual `pip`/`npm`/`uvicorn` steps entirely and just run [`./start.sh`](start.sh) — see [Quick start](#quick-start-linuxmacos) above.
 
 ## Deployment
 
@@ -217,7 +234,7 @@ Send `Authorization: Bearer <token>` when `AUTH_DISABLED=false`.
 |--------------|--------|---------|---------------------|
 | `text` | `text_parser.py` | Paste requirements / free text | None (LLM keys only) |
 | `figma` | `figma_parser.py` | Figma file or frame URL → structure + text | Figma access token |
-| `jira` | `jira_parser.py` | Fetch issue by key (REST API) | Jira base URL, email, API token. Optional `include_linked` |
+| `jira` | `jira_parser.py` | Fetch issue by key or link (REST API) | Jira base URL, email, API token. Optional `include_linked` |
 | `screenshot` | `screenshot_parser.py` | Image upload → vision summary → tests | Multipart `file`; uses provider's vision API |
 | `browser_session` | `browser_session_parser.py` | Record a browser session → tests | Playwright or IDE Browser MCP |
 
@@ -355,4 +372,4 @@ The button only appears for **FAILED** results — it's hidden on `passed` (no n
 
 ## License
 
-Aswani
+Released under the [MIT License](LICENSE) © Aswani.

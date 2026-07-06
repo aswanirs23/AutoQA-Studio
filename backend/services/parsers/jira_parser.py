@@ -9,7 +9,9 @@ Steps:
 """
 
 import base64
+import re
 from typing import Any
+from urllib.parse import urlparse
 
 import httpx
 from starlette.datastructures import UploadFile
@@ -17,6 +19,30 @@ from starlette.datastructures import UploadFile
 from backend.config import get_effective_settings
 from backend.services.parsers.base import BaseParser, InputFieldDef, ParsedInput, ParserMeta
 from backend.services.parsers.registry import ParserRegistry
+
+
+# Jira issue keys look like PROJ-123 (project code + dash + number).
+_ISSUE_KEY_RE = re.compile(r"([A-Za-z][A-Za-z0-9_]+-\d+)")
+
+
+def _parse_issue_ref(value: str) -> tuple[str, str]:
+    """Accept either a bare issue key (``PROJ-123``) or a full Jira link
+    (``https://your-domain.atlassian.net/browse/PROJ-123`` or a board URL with
+    ``?selectedIssue=PROJ-123``). Returns ``(base_url, issue_key)`` where
+    ``base_url`` is derived from the link when one is given, else ``""``.
+    """
+    value = (value or "").strip()
+    if not value:
+        return "", ""
+    if "://" in value:
+        parsed = urlparse(value)
+        base = f"{parsed.scheme}://{parsed.netloc}" if parsed.netloc else ""
+        match = _ISSUE_KEY_RE.search(parsed.path) or _ISSUE_KEY_RE.search(parsed.query)
+        key = match.group(1) if match else ""
+        return base, key.upper()
+    match = _ISSUE_KEY_RE.search(value)
+    key = match.group(1) if match else value
+    return "", key.upper()
 
 
 def _extract_text_from_adf(adf: dict[str, Any] | None) -> str:
@@ -89,14 +115,14 @@ def _extract_text_from_adf(adf: dict[str, Any] | None) -> str:
 class JiraParser(BaseParser):
     meta = ParserMeta(
         name="jira",
-        display_name="Jira issue",
-        description="Fetch a Jira story, bug, or epic by key (REST API). Optional linked issues.",
+        display_name="Jira",
+        description="Fetch a Jira story, bug, or epic by key or link (REST API). Optional linked issues.",
         input_fields=[
             InputFieldDef(
                 name="issue_key",
                 type="text",
-                label="Issue key",
-                placeholder="e.g. PROJ-123",
+                label="Issue key or link",
+                placeholder="PROJ-123 or https://your-domain.atlassian.net/browse/PROJ-123",
                 required=True,
             ),
         ],
@@ -105,15 +131,19 @@ class JiraParser(BaseParser):
 
     async def parse(self, data: dict[str, Any], file: UploadFile | None) -> ParsedInput:
         settings = get_effective_settings()
-        base = (settings.jira_base_url or "").rstrip("/")
         email = settings.jira_email
         token = settings.jira_api_token
+
+        # Accept either a bare issue key or a full Jira link; a link also tells us
+        # which site to hit, otherwise fall back to the configured base URL.
+        raw_ref = str(data.get("issue_url") or data.get("issue_key") or data.get("key") or "")
+        link_base, key = _parse_issue_ref(raw_ref)
+        base = (link_base or settings.jira_base_url or "").rstrip("/")
+
         if not base or not email or not token:
             raise ValueError("JIRA_BASE_URL, JIRA_EMAIL, and JIRA_API_TOKEN must be set (.env or API keys in the UI)")
-
-        key = str(data.get("issue_key") or data.get("key") or "").strip().upper()
         if not key:
-            raise ValueError("issue_key is required")
+            raise ValueError("A Jira issue key or link is required (e.g. PROJ-123)")
 
         include_linked = str(data.get("include_linked") or "").lower() in ("1", "true", "yes")
 

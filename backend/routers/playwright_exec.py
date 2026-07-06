@@ -19,13 +19,28 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/projects", tags=["playwright"])
 
 
+class GenerateBody(BaseModel):
+    # When false (default), a previously stored code is returned as-is so we don't
+    # call the LLM again. Set true to force a fresh generation and overwrite it.
+    regenerate: bool = False
+
+
 class GenerateResponse(BaseModel):
     code: str
+    cached: bool = False  # True when returned from storage without an LLM call
 
 
 class RunBody(BaseModel):
     code: str
     headless: bool = True
+
+
+class SaveCodeBody(BaseModel):
+    code: str
+
+
+class SaveCodeResponse(BaseModel):
+    ok: bool = True
 
 
 class RunResponse(BaseModel):
@@ -50,8 +65,10 @@ class SuggestExpectedResponse(BaseModel):
 async def generate_playwright(
     project_id: str,
     test_case_id: str,
+    body: GenerateBody | None = None,
     user_id: str = Depends(get_current_user_id),
 ) -> GenerateResponse:
+    body = body or GenerateBody()
     async with get_db() as db:
         proj = await project_repo.get_project(db, user_id, project_id)
         if not proj:
@@ -64,6 +81,10 @@ async def generate_playwright(
         tc = await testcase_repo.get_test_case(db, project_id, test_case_id)
         if not tc:
             raise HTTPException(status_code=404, detail="Test case not found")
+
+    # Reuse previously generated code unless a fresh generation was requested.
+    if not body.regenerate and (tc.playwright_code or "").strip():
+        return GenerateResponse(code=tc.playwright_code, cached=True)
 
     # Normalize trailing slash. The LLM-generated code appends '/<path>', so a
     # base_url like "https://x.com/" would produce "//<path>" — many sites
@@ -83,7 +104,33 @@ async def generate_playwright(
     except Exception as e:
         raise map_upstream_exception("LLM error", e) from e
 
-    return GenerateResponse(code=code)
+    # Store so subsequent opens reuse it instead of calling the LLM again.
+    try:
+        async with get_db() as db:
+            await testcase_repo.save_playwright_code(db, project_id, test_case_id, code)
+    except Exception:
+        logger.exception("save_playwright_code failed for project=%s tc=%s", project_id, test_case_id)
+
+    return GenerateResponse(code=code, cached=False)
+
+
+@router.post("/{project_id}/test-cases/{test_case_id}/save-playwright", response_model=SaveCodeResponse)
+async def save_playwright(
+    project_id: str,
+    test_case_id: str,
+    body: SaveCodeBody,
+    user_id: str = Depends(get_current_user_id),
+) -> SaveCodeResponse:
+    """Persist hand-edited Playwright code for a test case."""
+    async with get_db() as db:
+        proj = await project_repo.get_project(db, user_id, project_id)
+        if not proj:
+            raise HTTPException(status_code=404, detail="Project not found")
+        tc = await testcase_repo.get_test_case(db, project_id, test_case_id)
+        if not tc:
+            raise HTTPException(status_code=404, detail="Test case not found")
+        await testcase_repo.save_playwright_code(db, project_id, test_case_id, body.code)
+    return SaveCodeResponse(ok=True)
 
 
 @router.post("/{project_id}/test-cases/{test_case_id}/run-playwright", response_model=RunResponse)
@@ -136,6 +183,10 @@ async def run_playwright(
                 result.get("status", "error"),
                 result.get("screenshot_b64"),
             )
+            # Persist the code that was actually run so edits stick and the next
+            # open reuses them instead of regenerating.
+            if (body.code or "").strip():
+                await testcase_repo.save_playwright_code(db, project_id, test_case_id, body.code)
     except Exception:
         logger.exception("record_test_run failed for project=%s tc=%s", project_id, test_case_id)
 

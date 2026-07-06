@@ -94,6 +94,13 @@ def _row_to_tc(r: aiosqlite.Row) -> TestCase:
         last_screenshot = r["last_run_screenshot_b64"] or None
     except (IndexError, KeyError):
         pass
+    # playwright_code is only selected by get_test_case (kept out of list queries
+    # to avoid shipping code blobs in every list response); tolerate its absence.
+    pw_code = ""
+    try:
+        pw_code = r["playwright_code"] or ""
+    except (IndexError, KeyError):
+        pass
     return TestCase(
         id=r["id"],
         project_id=r["project_id"],
@@ -111,6 +118,7 @@ def _row_to_tc(r: aiosqlite.Row) -> TestCase:
         last_run_status=last_status,
         last_run_at=lra,
         last_run_screenshot_b64=last_screenshot,
+        playwright_code=pw_code,
     )
 
 
@@ -238,7 +246,7 @@ async def get_test_case(
         """
         SELECT t.id, t.project_id, t.feature_id, t.title, t.type, t.preconditions, t.steps,
           t.expected_result, t.priority, t.hash, t.source_ref, t.created_at,
-          t.last_run_status, t.last_run_at, t.last_run_screenshot_b64,
+          t.last_run_status, t.last_run_at, t.last_run_screenshot_b64, t.playwright_code,
           f.name AS feature_name
         FROM test_cases t
         JOIN features f ON f.id = t.feature_id
@@ -360,6 +368,21 @@ async def aggregate_stats(db: aiosqlite.Connection, project_id: str) -> dict[str
         "by_priority": by_priority,
         "by_feature": list(by_feature.values()),
     }
+
+
+async def save_playwright_code(
+    db: aiosqlite.Connection,
+    project_id: str,
+    test_case_id: str,
+    code: str,
+) -> bool:
+    """Persist the auto-execute Playwright code for a test case so it can be
+    reused instead of regenerated via the LLM on every open."""
+    cur = await db.execute(
+        "UPDATE test_cases SET playwright_code = ? WHERE project_id = ? AND id = ?",
+        (code, project_id, test_case_id),
+    )
+    return cur.rowcount > 0
 
 
 async def record_test_run(

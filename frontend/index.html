@@ -300,7 +300,13 @@
             <label for="autoExecCode" class="text-xs" style="color:var(--text-tertiary);">Playwright code</label>
             <button type="button" id="btnAutoExecRegenerate" class="text-xs underline" style="color:var(--accent-text);">Regenerate</button>
           </div>
-          <textarea id="autoExecCode" rows="12" class="w-full text-xs rounded px-3 py-2 font-mono" style="background:var(--bg-input);border:1px solid var(--border-input);color:var(--text-primary);" spellcheck="false"></textarea>
+          <div class="relative">
+            <textarea id="autoExecCode" rows="12" class="w-full text-xs rounded px-3 py-2 font-mono" style="background:var(--bg-input);border:1px solid var(--border-input);color:var(--text-primary);" spellcheck="false"></textarea>
+            <div id="autoExecCodeLoading" class="hidden absolute inset-0 flex items-center justify-center gap-2 rounded" style="background:var(--bg-input);color:var(--text-secondary);">
+              <span class="autoqa-spinner" aria-hidden="true"></span>
+              <span class="text-xs">Generating code…</span>
+            </div>
+          </div>
         </div>
 
         <div class="flex items-center gap-2">
@@ -313,6 +319,7 @@
       </div>
       <div class="px-4 py-3 flex justify-end gap-2 shrink-0" style="border-top:1px solid var(--border-default);">
         <button type="button" id="btnAutoExecCancel" class="px-4 py-2 rounded text-sm" style="background:var(--btn-neutral);color:var(--btn-neutral-text);">Cancel</button>
+        <button type="button" id="btnAutoExecSave" class="px-4 py-2 rounded text-sm font-medium" style="background:var(--btn-neutral);color:var(--btn-neutral-text);border:1px solid var(--border-input);">Save code</button>
         <button type="button" id="btnAutoExecRun" class="px-5 py-2 rounded text-sm font-medium" style="background:var(--accent);color:var(--text-on-accent);">&#9654; Run</button>
       </div>
     </div>
@@ -378,6 +385,9 @@
   <header id="appHeader" class="sticky top-0 z-50 backdrop-blur shrink-0" style="border-bottom:1px solid var(--border-default);background:var(--bg-header);">
     <div class="max-w-[1600px] mx-auto px-3 sm:px-4 h-14 flex items-center justify-between gap-2">
       <div class="flex items-center gap-3 min-w-0 flex-1">
+        <button type="button" id="btnSidebarToggle" aria-label="Toggle navigation" class="rounded-md shrink-0" style="color:var(--text-secondary);padding:6px;margin-left:-4px;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:22px;height:22px;"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/></svg>
+        </button>
         <a href="#/" id="linkHome" class="text-xl font-bold shrink-0 tracking-tight" style="color:var(--accent-text);">AutoQA Studio</a>
         <!-- Project Switcher -->
         <div id="projectSwitcherWrap" class="hidden relative min-w-0">
@@ -397,7 +407,7 @@
       </div>
       <div class="flex items-center gap-2 sm:gap-3 shrink-0">
         <label class="flex items-center gap-2 cursor-pointer select-none">
-          <span class="text-xs" style="color:var(--text-tertiary);">Dark</span>
+          <span id="darkLabel" class="text-xs" style="color:var(--text-tertiary);">Dark</span>
           <span id="darkToggle" role="switch" aria-checked="false" tabindex="0" class="dark-toggle-track">
             <span class="dark-toggle-knob"></span>
           </span>
@@ -422,6 +432,9 @@
     </div>
   </main>
 
+  <!-- Backdrop behind the mobile navigation drawer -->
+  <div id="sidebarBackdrop" aria-hidden="true"></div>
+
   <!-- Workspace: sidebar + content -->
   <div id="viewWorkspace" class="hidden flex-1 flex min-h-0 max-w-[1600px] w-full mx-auto">
     <aside id="sidebar" class="w-56 shrink-0 pt-2 pb-4 flex flex-col" style="border-right:1px solid var(--border-default);background:var(--bg-sidebar);">
@@ -445,7 +458,9 @@
       <!-- Project Overview -->
       <section id="viewOverview" class="workspace-section hidden max-w-5xl space-y-4">
         <!-- Header banner: project name (h1) + kebab -->
-        <div class="rounded-xl p-4 shadow-sm flex justify-between items-start gap-3" style="background:var(--bg-surface);border:1px solid var(--border-default);">
+        <!-- position/z-index lift this card above the sibling cards so the kebab
+             dropdown (Edit/Delete) isn't clipped by the next card's stacking context. -->
+        <div class="rounded-xl p-4 shadow-sm flex justify-between items-start gap-3" style="background:var(--bg-surface);border:1px solid var(--border-default);position:relative;z-index:30;">
           <div class="min-w-0">
             <h1 id="projectNameDisplay" class="text-2xl font-semibold min-w-0 break-words" style="color:var(--text-primary);"></h1>
             <p id="projectUpdatedMeta" class="text-xs mt-1" style="color:var(--text-tertiary);"></p>
