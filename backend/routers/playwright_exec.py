@@ -12,6 +12,7 @@ from backend.db import get_db
 from backend.deps import get_current_user_id
 from backend.repositories import project_repo, testcase_repo
 from backend.services.llm_service import generate_playwright_code
+from backend.services.playwright_login import auth_storage_path, capture_login_session, looks_like_login_page
 from backend.services.playwright_runner import run_playwright_code
 from backend.services.upstream_errors import map_upstream_exception
 
@@ -156,21 +157,41 @@ async def run_playwright(
     # Normalize trailing slash on base_url. See generate_playwright above for why.
     base_url = proj.base_url.strip().rstrip("/")
 
-    # Run the test. The runner is documented as "never raises for test failures",
-    # but unexpected infra errors (tempdir cleanup, subprocess spawn, etc.) can
-    # still bubble up — catch them so the client sees a structured error rather
-    # than a generic 500.
-    try:
-        result = await run_playwright_code(body.code, base_url, body.headless)
-    except Exception as e:
-        logger.exception("run_playwright_code raised for project=%s tc=%s", project_id, test_case_id)
-        result = {
-            "status": "error",
-            "screenshot_b64": None,
-            "error_message": f"Runner crashed: {type(e).__name__}: {e}",
-            "console_log": "",
-            "duration_ms": 0,
-        }
+    # Resolve the project's saved auth session (if any) so the run executes as a
+    # logged-in user. state_arg is None when no session has been captured yet.
+    state_path = auth_storage_path(project_id)
+    state_arg = str(state_path) if state_path.exists() else None
+
+    async def _run() -> dict:
+        # The runner is documented as "never raises for test failures", but
+        # unexpected infra errors (tempdir cleanup, subprocess spawn, etc.) can
+        # still bubble up — catch them so the client sees a structured error
+        # rather than a generic 500.
+        try:
+            return await run_playwright_code(body.code, base_url, body.headless, storage_state_path=state_arg)
+        except Exception as e:
+            logger.exception("run_playwright_code raised for project=%s tc=%s", project_id, test_case_id)
+            return {
+                "status": "error",
+                "screenshot_b64": None,
+                "error_message": f"Runner crashed: {type(e).__name__}: {e}",
+                "console_log": "",
+                "duration_ms": 0,
+            }
+
+    result = await _run()
+
+    # One auto-relogin + retry if the run looks like it hit a login wall. Capped
+    # at a single attempt so a persistently broken login can't loop forever.
+    async with get_db() as db:
+        auth = await project_repo.get_project_auth(db, user_id, project_id)
+    if auth and auth.get("login_url") and auth.get("password"):
+        msg = result.get("error_message") or ""
+        if result.get("status") != "passed" and looks_like_login_page(base_url, msg, auth["login_url"]):
+            cap = await capture_login_session(auth, base_url, project_id)
+            if cap.get("ok"):
+                state_arg = str(state_path)
+                result = await _run()
 
     # Persist the run result on the test case row. Persistence failures must
     # not lose the run result — log and continue so the client still sees it.
