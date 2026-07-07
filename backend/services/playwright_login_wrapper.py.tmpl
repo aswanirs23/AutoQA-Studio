@@ -1,0 +1,122 @@
+"""Server-assembled login script. Formatted by build_login_script and run in the
+sandboxed subprocess. Prints exactly one JSON object as its last action:
+  {{"ok": bool, "screenshot_b64": str|null, "error": str|null}}
+Uses only positional heuristics + optional selector overrides. No user/LLM code.
+"""
+
+import asyncio
+import base64
+import json
+import sys
+
+LOGIN_URL = {login_url!r}
+USERNAME = {username!r}
+PASSWORD = {password!r}
+SEL_USERNAME = {sel_username!r}
+SEL_PASSWORD = {sel_password!r}
+SEL_SUBMIT = {sel_submit!r}
+SUCCESS_CHECK = {success_check!r}
+BASE_URL = {base_url!r}
+STORAGE_PATH = {storage_path!r}
+HEADLESS = {headless!r}
+
+
+async def _shot(page):
+    try:
+        png = await page.screenshot(type="jpeg", quality=80, full_page=False)
+        return base64.b64encode(png).decode("ascii")
+    except Exception:
+        return None
+
+
+async def _fill_username(page):
+    if SEL_USERNAME:
+        await page.locator(SEL_USERNAME).first.fill(USERNAME)
+        return
+    for getter in (
+        lambda: page.get_by_placeholder("Username"),
+        lambda: page.get_by_placeholder("Email"),
+        lambda: page.get_by_role("textbox", name="Username"),
+        lambda: page.get_by_role("textbox", name="Email"),
+        lambda: page.locator("input[type='email']"),
+        lambda: page.locator("input[name='username'], input[name='email']"),
+    ):
+        loc = getter().first
+        if await loc.count() > 0:
+            await loc.fill(USERNAME)
+            return
+    raise RuntimeError("Could not find a username/email field")
+
+
+async def _fill_password(page):
+    loc = page.locator(SEL_PASSWORD).first if SEL_PASSWORD else page.locator("input[type='password']").first
+    if await loc.count() == 0:
+        raise RuntimeError("Could not find a password field")
+    await loc.fill(PASSWORD)
+
+
+async def _submit(page):
+    if SEL_SUBMIT:
+        await page.locator(SEL_SUBMIT).first.click()
+        return
+    for getter in (
+        lambda: page.get_by_role("button", name="Sign in"),
+        lambda: page.get_by_role("button", name="Log in"),
+        lambda: page.get_by_role("button", name="Login"),
+        lambda: page.locator("button[type='submit'], input[type='submit']"),
+    ):
+        loc = getter().first
+        if await loc.count() > 0:
+            await loc.click()
+            return
+    raise RuntimeError("Could not find a submit button")
+
+
+async def main():
+    from playwright.async_api import async_playwright
+    result = {{"ok": False, "screenshot_b64": None, "error": None}}
+    try:
+        async with async_playwright() as pw:
+            browser = await pw.chromium.launch(headless=HEADLESS)
+            context = await browser.new_context(viewport={{"width": 1280, "height": 720}})
+            page = await context.new_page()
+            try:
+                await page.goto(LOGIN_URL)
+                try:
+                    await page.wait_for_load_state("networkidle", timeout=8000)
+                except Exception:
+                    pass
+                await _fill_username(page)
+                await _fill_password(page)
+                await _submit(page)
+                try:
+                    await page.wait_for_load_state("networkidle", timeout=8000)
+                except Exception:
+                    pass
+                # Verify login worked.
+                ok = True
+                if SUCCESS_CHECK:
+                    if SUCCESS_CHECK.startswith("/"):
+                        ok = SUCCESS_CHECK in page.url
+                    else:
+                        ok = await page.get_by_text(SUCCESS_CHECK).first.count() > 0
+                else:
+                    ok = page.url.rstrip("/") != LOGIN_URL.rstrip("/")
+                result["screenshot_b64"] = await _shot(page)
+                if not ok:
+                    result["error"] = "Login did not reach the expected state (check credentials/selectors)."
+                else:
+                    await context.storage_state(path=STORAGE_PATH)
+                    result["ok"] = True
+            finally:
+                await context.close()
+                await browser.close()
+    except Exception as e:
+        result["error"] = f"{{type(e).__name__}}: {{e}}"
+    finally:
+        sys.stdout.write(json.dumps(result))
+        sys.stdout.flush()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
