@@ -42,6 +42,14 @@ class UpdateContextBody(BaseModel):
     context: dict[str, Any]
 
 
+class SaveAuthBody(BaseModel):
+    login_url: str
+    username: str
+    password: str | None = None  # omitted = keep the existing stored password
+    selectors: dict[str, str] = {}
+    success_check: str = ""
+
+
 class ProjectSummaryResponse(BaseModel):
     id: str
     name: str

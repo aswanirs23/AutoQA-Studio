@@ -19,12 +19,14 @@ from backend.models.requests import (
     ProjectDetailResponse,
     ProjectStatsResponse,
     ProjectSummaryResponse,
+    SaveAuthBody,
     UpdateContextBody,
     UpdateProjectBody,
     UpdateTestCaseBody,
 )
 from backend.models.test_case import InputRecord, Project, TestCase
 from backend.repositories import feature_repo, input_repo, project_repo, testcase_repo
+from backend.services.playwright_login import capture_login_session, mask_auth_config
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +70,7 @@ async def get_project(
         if not p:
             raise HTTPException(status_code=404, detail="Project not found")
         feats = await feature_repo.list_features(db, user_id, project_id)
+    p.auth_config = mask_auth_config(p.auth_config)
     return ProjectDetailResponse(project=p, features=feats)
 
 
@@ -106,6 +109,52 @@ async def update_context(
         p = await project_repo.get_project(db, user_id, project_id)
     assert p is not None
     return p
+
+
+@router.put("/{project_id}/auth")
+async def save_project_auth(
+    project_id: str,
+    body: SaveAuthBody,
+    user_id: str = Depends(get_current_user_id),
+) -> dict:
+    async with get_db() as db:
+        existing = await project_repo.get_project_auth(db, user_id, project_id)
+        if existing is None:
+            raise HTTPException(status_code=404, detail="Project not found")
+        password = body.password if body.password else existing.get("password", "")
+        cfg = {
+            "login_url": body.login_url.strip(),
+            "username": body.username,
+            "password": password,
+            "selectors": body.selectors or {},
+            "success_check": body.success_check or "",
+            "verified_at": existing.get("verified_at", ""),
+            "last_error": existing.get("last_error", ""),
+        }
+        await project_repo.update_project_auth(db, user_id, project_id, cfg)
+    return {"auth_config": mask_auth_config(cfg)}
+
+
+@router.post("/{project_id}/auth/verify")
+async def verify_project_auth(
+    project_id: str,
+    user_id: str = Depends(get_current_user_id),
+) -> dict:
+    from datetime import datetime, timezone
+    async with get_db() as db:
+        proj = await project_repo.get_project(db, user_id, project_id)
+        if not proj:
+            raise HTTPException(status_code=404, detail="Project not found")
+        auth = await project_repo.get_project_auth(db, user_id, project_id)
+    if not auth or not auth.get("login_url") or not auth.get("password"):
+        raise HTTPException(status_code=400, detail="Set login URL, username, and password first.")
+    base_url = (proj.base_url or "").strip().rstrip("/")
+    res = await capture_login_session(auth, base_url, project_id)
+    auth["verified_at"] = datetime.now(timezone.utc).isoformat() if res["ok"] else auth.get("verified_at", "")
+    auth["last_error"] = "" if res["ok"] else (res.get("error") or "Login failed")
+    async with get_db() as db:
+        await project_repo.update_project_auth(db, user_id, project_id, auth)
+    return res
 
 
 @router.post("/{project_id}/generate-description")
