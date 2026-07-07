@@ -52,3 +52,29 @@ def build_login_script(auth: dict, base_url: str, storage_path: str, headless: b
         storage_path=storage_path,
         headless=headless,
     )
+
+
+async def capture_login_session(auth: dict, base_url: str, project_id: str,
+                                headless: bool = True) -> dict:
+    """Run the server-assembled login script in the sandbox and persist storage_state.
+
+    Returns {"ok": bool, "screenshot_b64": str|None, "error": str|None}.
+    """
+    import asyncio as _asyncio
+    from backend.services.playwright_runner import _run_script_blocking, _validate_url
+
+    ok_url, err = _validate_url(auth.get("login_url") or "")
+    if not ok_url:
+        return {"ok": False, "screenshot_b64": None, "error": f"Login URL invalid: {err}"}
+
+    path = auth_storage_path(project_id)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    script = build_login_script(auth, base_url, str(path), headless)
+    result = await _asyncio.to_thread(_run_script_blocking, script)
+    if result.get("_timeout"):
+        return {"ok": False, "screenshot_b64": None, "error": "Login timed out (60s)."}
+    if "ok" not in result:
+        return {"ok": False, "screenshot_b64": None,
+                "error": f"Login runner error: {result.get('_stderr') or result.get('_parse_error') or 'unknown'}"}
+    return {"ok": bool(result.get("ok")), "screenshot_b64": result.get("screenshot_b64"),
+            "error": result.get("error")}

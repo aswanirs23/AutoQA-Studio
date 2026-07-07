@@ -19,6 +19,7 @@ import traceback
 USER_CODE = {user_code!r}
 BASE_URL = {base_url!r}
 HEADLESS = {headless!r}
+STORAGE_STATE = {storage_state!r}
 
 
 async def _capture_screenshot(page):
@@ -61,7 +62,10 @@ async def main():
     try:
         async with async_playwright() as pw:
             browser = await pw.chromium.launch(headless=HEADLESS)
-            context = await browser.new_context(viewport={{"width": 1280, "height": 720}})
+            context = await browser.new_context(
+                viewport={{"width": 1280, "height": 720}},
+                storage_state=STORAGE_STATE,
+            )
             page = await context.new_page()
             page.on("console", lambda msg: console_lines.append(f"[{{msg.type}}] {{msg.text}}"))
             try:
