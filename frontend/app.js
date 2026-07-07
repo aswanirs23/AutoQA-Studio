@@ -539,6 +539,7 @@ async function loadProjectWorkspaceData() {
     if (updatedEl) updatedEl.textContent = `Updated: ${formatIST(p.updated_at)}`;
     descriptionSection?.setValue(p.description || "");
     baseUrlSection?.setValue(p.base_url || "");
+    renderAuthConfig(p.auth_config || {});
     lastLoadedFeatures = detail.features || [];
     await loadAllTestCases();
     renderFeatureAccordions();
@@ -910,6 +911,78 @@ function initOverviewSections() {
 
   el("btnEditBaseUrl")?.addEventListener("click", () => baseUrlSection.enterEdit());
   el("btnEditDescription")?.addEventListener("click", () => descriptionSection.enterEdit());
+  el("btnSaveAuth")?.addEventListener("click", () => saveAuthConfig().catch(e => showToast(String(e.message || e), true)));
+  el("btnVerifyAuth")?.addEventListener("click", () => verifyAuthConfig());
+}
+
+// ---------------------------------------------------------------------------
+// Login setup (authenticated auto-execute)
+// ---------------------------------------------------------------------------
+function renderAuthConfig(cfg) {
+  el("authLoginUrl").value = cfg.login_url || "";
+  el("authUsername").value = cfg.username || "";
+  el("authLoginPassword").value = "";
+  el("authSuccessCheck").value = cfg.success_check || "";
+  const sel = cfg.selectors || {};
+  el("authSelUser").value = sel.username || "";
+  el("authSelPass").value = sel.password || "";
+  el("authSelSubmit").value = sel.submit || "";
+  const status = el("authStatus");
+  if (cfg.last_error) status.textContent = "Last attempt failed";
+  else if (cfg.verified_at) status.textContent = "Session saved · verified";
+  else if (cfg.password_set) status.textContent = "Credentials set — not verified";
+  else status.textContent = "Not set";
+}
+
+function _authBody() {
+  const pw = el("authLoginPassword").value;
+  const body = {
+    login_url: el("authLoginUrl").value.trim(),
+    username: el("authUsername").value.trim(),
+    success_check: el("authSuccessCheck").value.trim(),
+    selectors: {
+      username: el("authSelUser").value.trim(),
+      password: el("authSelPass").value.trim(),
+      submit: el("authSelSubmit").value.trim(),
+    },
+  };
+  if (pw) body.password = pw;
+  return body;
+}
+
+async function saveAuthConfig() {
+  el("authError").textContent = "";
+  const r = await fetchJSON(`/api/projects/${currentProjectId}/auth`, {
+    method: "PUT", body: JSON.stringify(_authBody()),
+  });
+  renderAuthConfig(r.auth_config || {});
+  showToast("Login settings saved.");
+}
+
+async function verifyAuthConfig() {
+  el("authError").textContent = "";
+  el("authShot").classList.add("hidden");
+  const btn = el("btnVerifyAuth");
+  btn.disabled = true; btn.textContent = "Testing…";
+  try {
+    await fetchJSON(`/api/projects/${currentProjectId}/auth`, { method: "PUT", body: JSON.stringify(_authBody()) });
+    const res = await fetchJSON(`/api/projects/${currentProjectId}/auth/verify`, { method: "POST", body: "{}" });
+    if (res.ok) {
+      el("authStatus").textContent = "Session saved · verified";
+      showToast("Login succeeded — session saved.");
+    } else {
+      el("authStatus").textContent = "Last attempt failed";
+      el("authError").textContent = res.error || "Login failed";
+    }
+    if (res.screenshot_b64) {
+      const img = el("authShot"); img.src = "data:image/jpeg;base64," + res.screenshot_b64;
+      img.classList.remove("hidden");
+    }
+  } catch (e) {
+    el("authError").textContent = String(e.message || e);
+  } finally {
+    btn.disabled = false; btn.textContent = "Test login & save session";
+  }
 }
 
 // ---------------------------------------------------------------------------
