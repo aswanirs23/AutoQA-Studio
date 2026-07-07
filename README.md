@@ -50,6 +50,7 @@ Full environment-variable reference: [docs/configuration.md](docs/configuration.
 - [Browser session recording](docs/browser-sessions.md) — record a flow, then generate tests
 - [Auto-execute](docs/auto-execute.md) — run test cases as Playwright; security boundaries
 - [Architecture](docs/architecture.md) — project layout
+- [Known limitations & roadmap](docs/limitations.md) — what it doesn't do yet, and proposed fixes
 
 ## License
 
