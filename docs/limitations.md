@@ -37,12 +37,12 @@ the code actually works, plus concrete proposals for the highest-impact fixes.
   DOM. It infers paths (`/login`, `/dashboard`…) and selectors from the test text, so it
   fails when the real page differs. The "mark as expected" flow fixes wording drift, not
   structural mismatches.
-- **Login / auth is out of scope.** The base URL must be public or already
-  authenticated. There is no login-step injection, no `storage_state`/cookie reuse, and
-  no auth fixture. Every run starts a fresh, unauthenticated context. The runner also
-  **scrubs `TOKEN`/`PASSWORD`/`SECRET` from the environment**
-  ([`playwright_runner.py`](../backend/services/playwright_runner.py)), so credentials
-  can't be passed in safely.
+- **Login / auth is now supported via project Login setup.** Set up credentials in
+  Project Overview; the runner saves session state and reuses it across runs, so every
+  auto-execute starts already authenticated. If a session expires during a run, the
+  runner re-logs-in once and retries. Credentials are stored in SQLite (unencrypted,
+  masked in the UI, never in git or generated code). v1 supports a single login form
+  (no MFA/SSO/OAuth) and Chromium only.
 - **Every test is independent.** No shared setup/teardown, page objects, or ordering —
   a multi-page flow must re-navigate (and re-login) from `base_url` every time.
 - **Operational limits.** 60-second hard timeout; Chromium only (no Firefox/WebKit);
@@ -70,7 +70,7 @@ the code actually works, plus concrete proposals for the highest-impact fixes.
 
 ## Proposed fixes (highest impact first)
 
-### 1. Authenticated auto-execute via reusable `storage_state`
+### ✅ 1. Authenticated auto-execute via reusable `storage_state` (shipped)
 
 **Problem:** tests behind login can't run, and credentials can't be passed safely.
 

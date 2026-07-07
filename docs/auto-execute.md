@@ -35,7 +35,17 @@ The button only appears for **FAILED** results — it's hidden on `passed` (no n
 - Generated code is checked against a regex denylist (`subprocess`, `os.system`, `eval`, `exec`, `__import__`, `open(`, `urllib`, etc.) at both generate-time and run-time.
 - The subprocess has a 60-second wall-clock timeout and is killed on overrun.
 - The subprocess inherits the parent environment minus any var whose name contains `API_KEY`, `SECRET`, `TOKEN`, `PASSWORD`, `JWT`, or `PRIVATE_KEY` — so the user's stored LLM keys can't leak into generated test code.
-- Auth-required flows are out of scope: the Base URL must be either public or already-authenticated state.
+
+## Authenticated runs (login)
+
+Set up login once per project in **Project Overview → Login setup**: login URL,
+username, password, and (optionally) selector overrides and a success check. Click
+**Test login & save session** — the app logs in inside the sandbox and saves the
+session (`data/auth/<project_id>.json`, gitignored). Every auto-execute run then starts
+authenticated; if a run detects an expired session it re-logs-in once and retries.
+
+Credentials are stored in SQLite (masked in the UI, never in git, never in generated
+code). v1 supports a single login form (no MFA/SSO/OAuth) and Chromium only.
 
 ## Requirements
 
