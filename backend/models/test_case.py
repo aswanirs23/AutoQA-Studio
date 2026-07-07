@@ -23,6 +23,7 @@ class Project(BaseModel):
     name: str
     description: str = ""
     base_url: str = ""
+    auth_config: dict[str, Any] = Field(default_factory=dict)
     context: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

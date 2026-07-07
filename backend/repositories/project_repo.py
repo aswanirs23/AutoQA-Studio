@@ -40,7 +40,7 @@ async def create_project(
 async def get_project(db: aiosqlite.Connection, user_id: str, project_id: str) -> Project | None:
     row = await fetch_one(
         db,
-        "SELECT id, user_id, name, description, base_url, context, created_at, updated_at FROM projects WHERE id = ? AND user_id = ?",
+        "SELECT id, user_id, name, description, base_url, context, auth_config, created_at, updated_at FROM projects WHERE id = ? AND user_id = ?",
         (project_id, user_id),
     )
     if not row:
@@ -52,6 +52,7 @@ async def get_project(db: aiosqlite.Connection, user_id: str, project_id: str) -
         name=row["name"],
         description=row["description"] or "",
         base_url=row["base_url"] or "",
+        auth_config=json.loads(row["auth_config"] or "{}"),
         context=ctx,
         created_at=datetime.fromisoformat(row["created_at"].replace("Z", "+00:00")),
         updated_at=datetime.fromisoformat(row["updated_at"].replace("Z", "+00:00")),
@@ -125,4 +126,28 @@ async def update_project_context(db: aiosqlite.Connection, user_id: str, project
 
 async def delete_project(db: aiosqlite.Connection, user_id: str, project_id: str) -> bool:
     cur = await db.execute("DELETE FROM projects WHERE id = ? AND user_id = ?", (project_id, user_id))
+    return cur.rowcount > 0
+
+
+async def get_project_auth(db: aiosqlite.Connection, user_id: str, project_id: str) -> dict | None:
+    """Raw (unmasked) auth_config for a project, or None if the project is absent."""
+    row = await fetch_one(
+        db,
+        "SELECT auth_config FROM projects WHERE id = ? AND user_id = ?",
+        (project_id, user_id),
+    )
+    if not row:
+        return None
+    return json.loads(row["auth_config"] or "{}")
+
+
+async def update_project_auth(
+    db: aiosqlite.Connection, user_id: str, project_id: str, auth_config: dict
+) -> bool:
+    now = datetime.now(timezone.utc).isoformat()
+    blob = json.dumps(auth_config, ensure_ascii=False)
+    cur = await db.execute(
+        "UPDATE projects SET auth_config = ?, updated_at = ? WHERE id = ? AND user_id = ?",
+        (blob, now, project_id, user_id),
+    )
     return cur.rowcount > 0

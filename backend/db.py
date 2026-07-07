@@ -211,6 +211,12 @@ async def migrate_schema(db: aiosqlite.Connection) -> None:
         "playwright_code",
         "ALTER TABLE test_cases ADD COLUMN playwright_code TEXT",
     )
+    await _ensure_column(
+        db,
+        "projects",
+        "auth_config",
+        "ALTER TABLE projects ADD COLUMN auth_config TEXT NOT NULL DEFAULT '{}'",
+    )
 
 
 async def init_db() -> None:
