@@ -93,6 +93,7 @@ async def update_project(
             raise HTTPException(status_code=404, detail="Project not found")
         p = await project_repo.get_project(db, user_id, project_id)
     assert p is not None
+    p.auth_config = mask_auth_config(p.auth_config)
     return p
 
 
@@ -108,6 +109,7 @@ async def update_context(
             raise HTTPException(status_code=404, detail="Project not found")
         p = await project_repo.get_project(db, user_id, project_id)
     assert p is not None
+    p.auth_config = mask_auth_config(p.auth_config)
     return p
 
 
