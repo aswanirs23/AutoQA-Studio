@@ -292,6 +292,10 @@ async def generate_playwright_code(
     settings: Settings,
     provider_override: str | None = None,
     model_override: str | None = None,
+    *,
+    is_login: bool = False,
+    landing_path: str = "",
+    has_credentials: bool = False,
 ) -> str:
     """Call the LLM to translate a manual test case into Playwright Python code.
 
@@ -304,7 +308,9 @@ async def generate_playwright_code(
     """
     from backend.prompts.templates import PLAYWRIGHT_SYSTEM_PROMPT, build_playwright_user_message
 
-    user = build_playwright_user_message(tc_dict, base_url)
+    user = build_playwright_user_message(
+        tc_dict, base_url, is_login=is_login, landing_path=landing_path, has_credentials=has_credentials
+    )
     provider = effective_llm_provider(settings, provider_override)
     model_id = resolved_model_id(settings, provider, model_override)
 

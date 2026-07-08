@@ -349,7 +349,10 @@ PLAYWRIGHT_SYSTEM_PROMPT = (
     "into a runnable Playwright Python async test. You output ONLY Python source code "
     "for one async function with this exact signature:\n"
     "    async def test(page, base_url):\n"
-    "No markdown fences, no commentary, no imports — just the function definition. "
+    "  or, for login-flow tests, exactly:\n"
+    "    async def test(page, base_url, username, password):\n"
+    "No markdown fences, no commentary, no imports — just the function definition with the "
+    "signature the request specifies. "
     "Inside the function:\n"
     "- Start with `await page.goto(base_url + '<path>')`. Infer the path from the test "
     "case title, preconditions, or steps. Common conventions: '/login' or '/signin' for "
@@ -378,19 +381,40 @@ PLAYWRIGHT_SYSTEM_PROMPT = (
 )
 
 
-def build_playwright_user_message(tc: dict, base_url: str) -> str:
+def build_playwright_user_message(tc: dict, base_url: str, *, is_login: bool = False,
+                                  landing_path: str = "", has_credentials: bool = False) -> str:
     """Build the user-side prompt for Playwright code generation from a test case dict."""
     steps_section = "\n".join(f"  {i + 1}. {s}" for i, s in enumerate(tc.get('steps') or []))
-    return (
+    header = (
         "Generate a Playwright Python async test for the following manual test case.\n\n"
         f"BASE_URL: {base_url}\n\n"
-        "TEST CASE:\n"
+    )
+    body = (
         f"Title: {tc.get('title', '')}\n"
         f"Preconditions: {tc.get('preconditions', '')}\n"
         f"Steps:\n{steps_section}\n"
         f"Expected result: {tc.get('expected_result', '')}\n\n"
-        "Output ONLY the `async def test(page, base_url):` function and its body."
     )
+    if is_login and has_credentials:
+        directive = (
+            "This is a LOGIN test. Use EXACTLY this signature:\n"
+            "    async def test(page, base_url, username, password):\n"
+            "Navigate to the login page with `await page.goto(base_url + '/')` (or the login path "
+            "implied by the steps). Fill the username/email field with the `username` parameter and "
+            "the password field with the `password` parameter — NEVER hard-code credential values. "
+            "Submit, then assert the post-login state.\n"
+            "Output ONLY the `async def test(page, base_url, username, password):` function and its body."
+        )
+    else:
+        target = f"base_url + '{landing_path}'" if landing_path else "base_url + '/'"
+        directive = (
+            "Use EXACTLY this signature:\n"
+            "    async def test(page, base_url):\n"
+            f"Start with `await page.goto({target})` — this is the page under test. "
+            "Then perform the steps and assert the expected result.\n"
+            "Output ONLY the `async def test(page, base_url):` function and its body."
+        )
+    return header + body + directive
 
 
 EXPECTED_RESULT_REWRITE_SYSTEM_PROMPT = (
