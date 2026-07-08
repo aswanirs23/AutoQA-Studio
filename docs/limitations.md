@@ -34,9 +34,11 @@ the code actually works, plus concrete proposals for the highest-impact fixes.
 
 - **Selectors are guessed blind.** [`generate_playwright_code`](../backend/services/llm_service.py)
   receives only `{title, preconditions, steps, expected_result}` + `base_url` — no live
-  DOM. It infers paths (`/login`, `/dashboard`…) and selectors from the test text, so it
-  fails when the real page differs. The "mark as expected" flow fixes wording drift, not
-  structural mismatches.
+  DOM. It infers selectors from the test text, so it fails when the real page differs.
+  **Navigation path** is now taken from the configured landing page (set in Login setup or
+  derived from a path-style Success check), but selectors are still guessed. The "mark as
+  expected" flow fixes wording drift, not structural mismatches. DOM-aware generation
+  remains the open fix (#2).
 - **Login / auth is now supported via project Login setup.** Set up credentials in
   Project Overview; the runner saves session state and reuses it across runs, so every
   auto-execute starts already authenticated. If a session expires during a run, the

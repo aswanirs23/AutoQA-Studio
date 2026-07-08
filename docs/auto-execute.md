@@ -44,6 +44,10 @@ username, password, and (optionally) selector overrides and a success check. Cli
 session (`data/auth/<project_id>.json`, gitignored). Every auto-execute run then starts
 authenticated; if a run detects an expired session it re-logs-in once and retries.
 
+**App home path:** authenticated tests start on the **App home path** (configured in Login setup, or auto-derived from a path-style Success check) instead of `/`. This ensures tests land on the correct authenticated page, not the bare domain root.
+
+**Login-flow tests:** tests labeled as "login tests" (auto-detected by title pattern, or forced via the **Login test** toggle on the test case) run in a logged-out state and receive the saved username and password injected at run time — credentials are never stored in the generated code. This allows testing the login flow itself without hardcoding secrets.
+
 Credentials are stored in SQLite (masked in the UI, never in git, never in generated
 code). v1 supports a single login form (no MFA/SSO/OAuth) and Chromium only.
 
