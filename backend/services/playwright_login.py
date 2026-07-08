@@ -78,3 +78,26 @@ async def capture_login_session(auth: dict, base_url: str, project_id: str,
                 "error": f"Login runner error: {result.get('_stderr') or result.get('_parse_error') or 'unknown'}"}
     return {"ok": bool(result.get("ok")), "screenshot_b64": result.get("screenshot_b64"),
             "error": result.get("error")}
+
+
+_LOGIN_CUES = ("sign in", "sign-in", "signin", "log in", "log-in", "login")
+
+
+def resolve_landing_path(auth_config: dict) -> str:
+    """Path an authenticated test should open, or '' to mean '/'."""
+    cfg = auth_config or {}
+    home = (cfg.get("home_path") or "").strip()
+    if home:
+        return home
+    success = (cfg.get("success_check") or "").strip()
+    if success.startswith("/"):
+        return success
+    return ""
+
+
+def is_login_test(title: str, steps: list[str]) -> bool:
+    """Heuristic: does this test exercise a login/sign-in flow?"""
+    haystack = (title or "").lower()
+    for s in steps or []:
+        haystack += "\n" + str(s).lower()
+    return any(cue in haystack for cue in _LOGIN_CUES)
