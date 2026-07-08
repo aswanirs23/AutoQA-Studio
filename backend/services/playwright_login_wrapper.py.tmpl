@@ -104,7 +104,13 @@ async def main():
                     ok = page.url.rstrip("/") != LOGIN_URL.rstrip("/")
                 result["screenshot_b64"] = await _shot(page)
                 if not ok:
-                    result["error"] = "Login did not reach the expected state (check credentials/selectors)."
+                    if SUCCESS_CHECK:
+                        result["error"] = (
+                            "Logged in and reached '" + page.url + "', but success check '"
+                            + SUCCESS_CHECK + "' was not found on the page."
+                        )
+                    else:
+                        result["error"] = "Login did not leave the login page (check credentials/selectors)."
                 else:
                     await context.storage_state(path=STORAGE_PATH)
                     result["ok"] = True
