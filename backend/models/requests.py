@@ -48,6 +48,7 @@ class SaveAuthBody(BaseModel):
     password: str | None = None  # omitted = keep the existing stored password
     selectors: dict[str, str] = {}
     success_check: str = ""
+    home_path: str = ""
 
 
 class ProjectSummaryResponse(BaseModel):

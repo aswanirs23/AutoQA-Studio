@@ -12,7 +12,13 @@ from backend.db import get_db
 from backend.deps import get_current_user_id
 from backend.repositories import project_repo, testcase_repo
 from backend.services.llm_service import generate_playwright_code
-from backend.services.playwright_login import auth_storage_path, capture_login_session, looks_like_login_page
+from backend.services.playwright_login import (
+    auth_storage_path,
+    capture_login_session,
+    is_login_test,
+    looks_like_login_page,
+    resolve_landing_path,
+)
 from backend.services.playwright_runner import run_playwright_code
 from backend.services.upstream_errors import map_upstream_exception
 
@@ -24,6 +30,8 @@ class GenerateBody(BaseModel):
     # When false (default), a previously stored code is returned as-is so we don't
     # call the LLM again. Set true to force a fresh generation and overwrite it.
     regenerate: bool = False
+    # None = auto-detect via is_login_test(); explicit True/False overrides the heuristic.
+    login_mode: bool | None = None
 
 
 class GenerateResponse(BaseModel):
@@ -34,6 +42,8 @@ class GenerateResponse(BaseModel):
 class RunBody(BaseModel):
     code: str
     headless: bool = True
+    # True forces a logged-out run (no storage_state) even if a session file exists.
+    logged_out: bool = False
 
 
 class SaveCodeBody(BaseModel):
@@ -98,8 +108,16 @@ async def generate_playwright(
         "steps": tc.steps,
         "expected_result": tc.expected_result,
     }
+    async with get_db() as db:
+        auth = await project_repo.get_project_auth(db, user_id, project_id) or {}
+    is_login = body.login_mode if body.login_mode is not None else is_login_test(tc.title, tc.steps)
+    landing_path = resolve_landing_path(auth)
+    has_creds = bool(auth.get("username") and auth.get("password"))
     try:
-        code = await generate_playwright_code(tc_dict, base_url, settings)
+        code = await generate_playwright_code(
+            tc_dict, base_url, settings,
+            is_login=is_login, landing_path=landing_path, has_credentials=has_creds,
+        )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
@@ -157,10 +175,15 @@ async def run_playwright(
     # Normalize trailing slash on base_url. See generate_playwright above for why.
     base_url = proj.base_url.strip().rstrip("/")
 
-    # Resolve the project's saved auth session (if any) so the run executes as a
-    # logged-in user. state_arg is None when no session has been captured yet.
+    async with get_db() as db:
+        auth = await project_repo.get_project_auth(db, user_id, project_id) or {}
+    # A login test must run logged OUT (no storage_state) so it can exercise the
+    # login flow itself; other tests reuse a saved session if one exists.
+    logged_out = body.logged_out or is_login_test(tc.title, tc.steps)
     state_path = auth_storage_path(project_id)
-    state_arg = str(state_path) if state_path.exists() else None
+    state_arg = None if logged_out else (str(state_path) if state_path.exists() else None)
+    username = auth.get("username", "")
+    password = auth.get("password", "")
 
     async def _run() -> dict:
         # The runner is documented as "never raises for test failures", but
@@ -168,7 +191,9 @@ async def run_playwright(
         # still bubble up — catch them so the client sees a structured error
         # rather than a generic 500.
         try:
-            return await run_playwright_code(body.code, base_url, body.headless, storage_state_path=state_arg)
+            return await run_playwright_code(body.code, base_url, body.headless,
+                                             storage_state_path=state_arg,
+                                             username=username, password=password)
         except Exception as e:
             logger.exception("run_playwright_code raised for project=%s tc=%s", project_id, test_case_id)
             return {
@@ -183,9 +208,9 @@ async def run_playwright(
 
     # One auto-relogin + retry if the run looks like it hit a login wall. Capped
     # at a single attempt so a persistently broken login can't loop forever.
-    async with get_db() as db:
-        auth = await project_repo.get_project_auth(db, user_id, project_id)
-    if auth and auth.get("login_url") and auth.get("password"):
+    # Skipped for logged-out (login test) runs — those are meant to exercise the
+    # login flow itself, not be silently re-authenticated around it.
+    if not logged_out and auth and auth.get("login_url") and auth.get("password"):
         msg = result.get("error_message") or ""
         if result.get("status") != "passed" and looks_like_login_page(base_url, msg, auth["login_url"]):
             cap = await capture_login_session(auth, base_url, project_id)

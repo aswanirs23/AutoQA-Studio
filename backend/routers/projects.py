@@ -130,6 +130,7 @@ async def save_project_auth(
             "password": password,
             "selectors": body.selectors or {},
             "success_check": body.success_check or "",
+            "home_path": (body.home_path or existing.get("home_path", "")).strip(),
             "verified_at": existing.get("verified_at", ""),
             "last_error": existing.get("last_error", ""),
         }
