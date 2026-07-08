@@ -11,6 +11,7 @@ It MUST print exactly one JSON object to stdout as its last action, of the form:
 
 import asyncio
 import base64
+import inspect
 import json
 import sys
 import time
@@ -20,6 +21,8 @@ USER_CODE = {user_code!r}
 BASE_URL = {base_url!r}
 HEADLESS = {headless!r}
 STORAGE_STATE = {storage_state!r}
+USERNAME = {username!r}
+PASSWORD = {password!r}
 
 
 async def _capture_screenshot(page):
@@ -76,7 +79,10 @@ async def main():
                     result["error_message"] = "Generated code does not define an async test(page, base_url) function."
                 else:
                     try:
-                        await test_fn(page, BASE_URL)
+                        if len(inspect.signature(test_fn).parameters) >= 4:
+                            await test_fn(page, BASE_URL, USERNAME, PASSWORD)
+                        else:
+                            await test_fn(page, BASE_URL)
                         # Give SPAs a moment to settle before we screenshot, so
                         # the success screenshot reflects the final UI state.
                         try:

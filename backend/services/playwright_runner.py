@@ -87,7 +87,8 @@ def _run_script_blocking(script: str) -> dict:
 
 
 async def run_playwright_code(code: str, base_url: str, headless: bool,
-                              storage_state_path: str | None = None) -> dict:
+                              storage_state_path: str | None = None,
+                              username: str = "", password: str = "") -> dict:
     """Execute the user's Playwright code in a subprocess and return a result dict.
 
     Returns:
@@ -112,7 +113,7 @@ async def run_playwright_code(code: str, base_url: str, headless: bool,
     template = WRAPPER_PATH.read_text(encoding="utf-8")
     state = storage_state_path if (storage_state_path and Path(storage_state_path).exists()) else None
     script = template.format(user_code=code, base_url=base_url, headless=headless,
-                             storage_state=state)
+                             storage_state=state, username=username, password=password)
 
     result = await asyncio.to_thread(_run_script_blocking, script)
     if result.get("_timeout"):
