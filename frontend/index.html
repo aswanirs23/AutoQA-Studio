@@ -314,6 +314,11 @@
           <label for="autoExecHeaded" class="text-sm" style="color:var(--text-secondary);">Watch it run (headed browser)</label>
         </div>
 
+        <div class="flex items-center gap-2">
+          <input type="checkbox" id="autoExecLoginTest" />
+          <label for="autoExecLoginTest" class="text-sm" style="color:var(--text-secondary);">Login test (run logged out, use saved credentials)</label>
+        </div>
+
         <!-- Result panel populated after Run -->
         <div id="autoExecResult" class="hidden"></div>
       </div>
@@ -517,6 +522,7 @@
             <input id="authUsername" type="text" placeholder="Username / email" class="text-sm rounded px-3 py-2" style="background:var(--bg-input);border:1px solid var(--border-input);color:var(--text-primary);" />
             <input id="authLoginPassword" type="password" placeholder="Password (leave blank to keep)" class="text-sm rounded px-3 py-2" style="background:var(--bg-input);border:1px solid var(--border-input);color:var(--text-primary);" />
             <input id="authSuccessCheck" type="text" placeholder="Success check (path or text, optional)" class="text-sm rounded px-3 py-2" style="background:var(--bg-input);border:1px solid var(--border-input);color:var(--text-primary);" />
+            <input id="authHomePath" type="text" placeholder="App home path after login (e.g. /inventory.html, optional)" class="text-sm rounded px-3 py-2" style="background:var(--bg-input);border:1px solid var(--border-input);color:var(--text-primary);" />
           </div>
           <details class="mt-2">
             <summary class="text-xs cursor-pointer" style="color:var(--text-tertiary);">Advanced — selector overrides</summary>

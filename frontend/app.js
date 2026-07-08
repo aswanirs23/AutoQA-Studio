@@ -923,6 +923,7 @@ function renderAuthConfig(cfg) {
   el("authUsername").value = cfg.username || "";
   el("authLoginPassword").value = "";
   el("authSuccessCheck").value = cfg.success_check || "";
+  el("authHomePath").value = cfg.home_path || "";
   const sel = cfg.selectors || {};
   el("authSelUser").value = sel.username || "";
   el("authSelPass").value = sel.password || "";
@@ -940,6 +941,7 @@ function _authBody() {
     login_url: el("authLoginUrl").value.trim(),
     username: el("authUsername").value.trim(),
     success_check: el("authSuccessCheck").value.trim(),
+    home_path: el("authHomePath").value.trim(),
     selectors: {
       username: el("authSelUser").value.trim(),
       password: el("authSelPass").value.trim(),
@@ -1274,6 +1276,7 @@ async function openAutoExecModal() {
   el("autoExecResult").classList.add("hidden");
   el("autoExecResult").innerHTML = "";
   el("autoExecHeaded").checked = false;
+  el("autoExecLoginTest").checked = false;
   el("autoExecModal")?.classList.remove("hidden");
 
   // Load code: the backend returns previously stored code without an LLM call,
@@ -1310,7 +1313,8 @@ async function regenerateAutoExecCode() {
   setAutoExecGenerating(true);
   try {
     const resp = await fetchJSON(`/api/projects/${currentProjectId}/test-cases/${encodeURIComponent(tcId)}/generate-playwright`, {
-      method: "POST", body: JSON.stringify({ regenerate: true }),
+      method: "POST",
+      body: JSON.stringify(el("autoExecLoginTest")?.checked ? { regenerate: true, login_mode: true } : { regenerate: true }),
     });
     el("autoExecCode").value = resp.code || "";
     const tc = lastLoadedCases.find(c => c.id === tcId);
@@ -1356,7 +1360,7 @@ async function runAutoExec() {
   try {
     const resp = await fetchJSON(`/api/projects/${currentProjectId}/test-cases/${encodeURIComponent(tcId)}/run-playwright`, {
       method: "POST",
-      body: JSON.stringify({ code, headless }),
+      body: JSON.stringify({ code, headless, logged_out: !!el("autoExecLoginTest")?.checked }),
     });
     renderAutoExecResult(resp);
     // Refresh test case in the local cache so the row's status dot updates
