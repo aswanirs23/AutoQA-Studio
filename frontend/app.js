@@ -1469,7 +1469,7 @@ async function openAdaptExpectedModal(runResult) {
   el("adaptOriginalExpected").textContent = tc.expected_result || "(empty)";
   el("adaptObservedText").textContent = pageText || "(no page text captured)";
   el("adaptSuggestedText").value = "Loading suggestion...";
-  el("adaptRegenerateCode").checked = false;
+  el("adaptSuggestedCode").value = "Loading suggestion...";
   el("btnAdaptExpectedSave").disabled = true;
   modalEl.classList.remove("hidden");
 
@@ -1478,27 +1478,27 @@ async function openAdaptExpectedModal(runResult) {
 
 async function _fetchAdaptSuggestion() {
   if (!_adaptContext) return;
-  const { tcId, errorMessage, pageText } = _adaptContext;
+  const { tcId, errorMessage, runResult } = _adaptContext;
   const tc = lastLoadedCases.find(c => c.id === tcId);
-  const current = tc?.expected_result || "";
+  const currentCode = tc?.playwright_code || (el("autoExecCode")?.value || "");
   el("adaptSuggestedText").value = "Loading suggestion...";
+  el("adaptSuggestedCode").value = "Loading suggestion...";
   el("btnAdaptExpectedSave").disabled = true;
   try {
     const resp = await fetchJSON(
-      `/api/projects/${currentProjectId}/test-cases/${encodeURIComponent(tcId)}/suggest-expected-result`,
-      {
-        method: "POST",
-        body: JSON.stringify({
-          current_expected_result: current,
-          actual_page_text: pageText,
+      `/api/projects/${currentProjectId}/test-cases/${encodeURIComponent(tcId)}/heal`,
+      { method: "POST", body: JSON.stringify({
+          current_code: currentCode,
+          page_snapshot: runResult?.page_snapshot || "",
           error_message: errorMessage,
-        }),
-      },
+        }) },
     );
-    el("adaptSuggestedText").value = resp.suggested || "";
+    el("adaptSuggestedText").value = resp.suggested_expected || "";
+    el("adaptSuggestedCode").value = resp.suggested_code || "";
     el("btnAdaptExpectedSave").disabled = false;
   } catch (e) {
     el("adaptSuggestedText").value = "";
+    el("adaptSuggestedCode").value = "";
     showToast(String(e.message || e), true);
     el("btnAdaptExpectedSave").disabled = false;
   }
@@ -1518,7 +1518,7 @@ async function saveAndRerunAdaptedExpected() {
     fieldError(el("adaptSuggestedText"), "Adapted expected result cannot be empty.");
     return;
   }
-  const regenCode = !!el("adaptRegenerateCode")?.checked;
+  const newCode = (el("adaptSuggestedCode")?.value || "").trim();
 
   el("btnAdaptExpectedSave").disabled = true;
   el("btnAdaptExpectedSave").textContent = "Saving...";
@@ -1539,6 +1539,16 @@ async function saveAndRerunAdaptedExpected() {
     return;
   }
 
+  if (newCode) {
+    try {
+      await fetchJSON(
+        `/api/projects/${currentProjectId}/test-cases/${encodeURIComponent(tcId)}/save-playwright`,
+        { method: "POST", body: JSON.stringify({ code: newCode }) });
+      const tc2 = lastLoadedCases.find(c => c.id === tcId);
+      if (tc2) tc2.playwright_code = newCode;
+    } catch (e) { showToast(String(e.message || e), true); }
+  }
+
   // Step 2: close the adapt modal and switch the result panel to "running"
   closeAdaptExpectedModal();
   const resultEl = el("autoExecResult");
@@ -1547,27 +1557,11 @@ async function saveAndRerunAdaptedExpected() {
     resultEl.innerHTML = `<div class="rounded-lg p-4 text-sm" style="background:var(--bg-surface-alt);color:var(--text-secondary);">Adapted. Re-running test (max 60s)...</div>`;
   }
 
-  // Step 3: optionally regenerate the Playwright code from the new expected
-  if (regenCode) {
-    try {
-      const gen = await fetchJSON(
-        `/api/projects/${currentProjectId}/test-cases/${encodeURIComponent(tcId)}/generate-playwright`,
-        { method: "POST", body: JSON.stringify({}) },
-      );
-      if (gen?.code) el("autoExecCode").value = gen.code;
-    } catch (e) {
-      // Non-fatal: continue with whatever code is already in the editor
-      showToast("Regenerate failed; running existing code instead.", true);
-    }
-  }
-
-  // Step 4: run the test with whatever code is currently in the editor
-  const code = el("autoExecCode")?.value || "";
-  const headless = !el("autoExecHeaded")?.checked;
+  // Step 3: run the healed code
   try {
     const resp = await fetchJSON(
       `/api/projects/${currentProjectId}/test-cases/${encodeURIComponent(tcId)}/run-playwright`,
-      { method: "POST", body: JSON.stringify({ code, headless }) },
+      { method: "POST", body: JSON.stringify({ code: newCode, headless: true }) },
     );
     renderAutoExecResult(resp);
     // If still FAILED after adapt, show inline "still failed" note

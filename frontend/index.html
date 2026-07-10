@@ -353,10 +353,10 @@
           </div>
           <textarea id="adaptSuggestedText" rows="6" class="w-full text-sm rounded px-3 py-2" style="background:var(--bg-input);border:1px solid var(--border-input);color:var(--text-primary);"></textarea>
         </div>
-        <label class="flex items-center gap-2 text-sm" style="color:var(--text-secondary);">
-          <input type="checkbox" id="adaptRegenerateCode" />
-          Regenerate Playwright code from new expected
-        </label>
+        <div>
+          <label for="adaptSuggestedCode" class="text-xs" style="color:var(--text-tertiary);">Proposed code (editable)</label>
+          <textarea id="adaptSuggestedCode" rows="10" class="w-full text-xs rounded px-3 py-2 font-mono" style="background:var(--bg-input);border:1px solid var(--border-input);color:var(--text-primary);" spellcheck="false"></textarea>
+        </div>
         <p class="text-xs" style="color:var(--text-muted);">This permanently updates the test case. Use Cancel if the actual behavior is a bug.</p>
       </div>
       <div class="px-4 py-3 flex justify-end gap-2 shrink-0" style="border-top:1px solid var(--border-default);">
