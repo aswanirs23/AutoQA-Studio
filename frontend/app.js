@@ -1546,6 +1546,7 @@ async function saveAndRerunAdaptedExpected() {
         { method: "POST", body: JSON.stringify({ code: newCode }) });
       const tc2 = lastLoadedCases.find(c => c.id === tcId);
       if (tc2) tc2.playwright_code = newCode;
+      if (el("autoExecCode")) el("autoExecCode").value = newCode;
     } catch (e) { showToast(String(e.message || e), true); }
   }
 
@@ -1559,9 +1560,10 @@ async function saveAndRerunAdaptedExpected() {
 
   // Step 3: run the healed code
   try {
+    const codeToRun = newCode || (el("autoExecCode")?.value || "");
     const resp = await fetchJSON(
       `/api/projects/${currentProjectId}/test-cases/${encodeURIComponent(tcId)}/run-playwright`,
-      { method: "POST", body: JSON.stringify({ code: newCode, headless: true }) },
+      { method: "POST", body: JSON.stringify({ code: codeToRun, headless: !el("autoExecHeaded")?.checked, logged_out: !!el("autoExecLoginTest")?.checked }) },
     );
     renderAutoExecResult(resp);
     // If still FAILED after adapt, show inline "still failed" note
