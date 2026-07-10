@@ -32,13 +32,11 @@ the code actually works, plus concrete proposals for the highest-impact fixes.
 
 ## Auto-execute (Playwright)
 
-- **Selectors are guessed blind.** [`generate_playwright_code`](../backend/services/llm_service.py)
+- **Selectors are guessed blind (initially).** [`generate_playwright_code`](../backend/services/llm_service.py)
   receives only `{title, preconditions, steps, expected_result}` + `base_url` — no live
   DOM. It infers selectors from the test text, so it fails when the real page differs.
   **Navigation path** is now taken from the configured landing page (set in Login setup or
-  derived from a path-style Success check), but selectors are still guessed. The "mark as
-  expected" flow fixes wording drift, not structural mismatches. DOM-aware generation
-  remains the open fix (#2).
+  derived from a path-style Success check), but selectors are still guessed on first generation. **However, when a test fails, the self-healing flow now captures the actual page's DOM snapshot and regenerates the code with corrected selectors and assertions** — fixing structural mismatches to match the observed page. Fix #2 (DOM-aware generation) is now partially delivered via the heal path; first-pass generation still guesses without live DOM.
 - **Login / auth is now supported via project Login setup.** Set up credentials in
   Project Overview; the runner saves session state and reuses it across runs, so every
   auto-execute starts already authenticated. If a session expires during a run, the
@@ -93,20 +91,23 @@ the code actually works, plus concrete proposals for the highest-impact fixes.
 
 This also unblocks proposal #2 for post-login pages.
 
-### 2. DOM-snapshot-aware code generation
+### 2. DOM-snapshot-aware code generation (partially delivered)
 
 **Problem:** selectors/paths are guessed from text, causing flaky false failures.
 
-**Approach — ground the model in the real page:**
+**Status:** Self-healing now captures the page DOM on failure and regenerates code against the observed page (healing uses the real DOM). First-pass generation still guesses without live DOM.
+
+**Remaining approach — ground initial generation in the real page:**
 
 1. Before generating, navigate to the inferred path (authenticated via #1) and capture a
    **compact accessibility/DOM snapshot** — interactive elements with their roles,
    accessible names, and placeholders (e.g. `page.accessibility.snapshot()` trimmed to
    inputs/buttons/links).
 2. Pass that snapshot into `build_playwright_user_message` so the LLM selects **real**
-   locators instead of guessing.
-3. Add a **self-healing loop**: on a run failure, capture the actual page snapshot and
-   regenerate the code once with that context before reporting failure.
+   locators instead of guessing on the first pass.
+3. The **self-healing loop** (shipped) captures the actual page snapshot on run failure and
+   regenerates the code with that context — fixing selectors and assertions to match the
+   observed page before reporting failure to the user.
 
 ### 3. Richer Jira / PRD ingestion
 

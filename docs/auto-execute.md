@@ -10,14 +10,16 @@ The **Auto-execute** button on any test case detail turns it into a runnable Pla
 
 The test case row in the feature accordion gets a small status dot (green / red / amber) reflecting the most recent run.
 
-## When a test fails because the wording diverged
+## When a test fails: self-healing & DOM snapshots
 
-If the app's actual behavior is correct but the test's `expected_result` wording is stale, click **✓ Mark as expected behavior** in the result panel. This opens a small modal:
+If a test fails, click **✓ Mark as expected behavior** in the result panel. The app captures the failed page's DOM snapshot and heals **both** the test's `expected_result` and the Playwright code itself. This opens a modal:
 
-- The **original expected result** (read-only) and the **page text we observed** are shown side-by-side for reference.
-- An LLM proposes a rewritten `expected_result` that documents the observed behavior. Click **🔄 Try another phrasing** for a different draft, or edit the textarea directly.
-- Optionally tick **Regenerate Playwright code from new expected** if you want fresh code; leave it unchecked to keep code you've already edited by hand.
-- Click **Save (replaces expected result)** — the test case is patched and the test re-runs immediately. If the re-run still fails, a small note appears suggesting that the test logic itself may need a manual edit.
+- The **original expected result** (read-only) and the **page text we observed** are shown for reference.
+- An LLM proposes:
+  - A rewritten `expected_result` that documents the observed behavior.
+  - **Corrected Playwright code** with fixed selectors and assertions to match the observed page's actual DOM. The function signature and logic flow are preserved; credentials never enter the healed code.
+- Preview the **suggested code** and **suggested expected result** side-by-side. Click **🔄 Try another phrasing** for alternative drafts, or edit either textarea directly.
+- Click **Save & Re-run** — the test case is patched with both the new expected result and the healed code, and the test re-runs immediately. If the re-run still fails, check whether the test logic itself needs manual adjustment (selectors may still diverge if the page structure changed again).
 
 The button only appears for **FAILED** results — it's hidden on `passed` (no need) and `error` (runner-level crash, not an assertion divergence).
 
