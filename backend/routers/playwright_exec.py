@@ -11,7 +11,7 @@ from backend.config import get_effective_settings
 from backend.db import get_db
 from backend.deps import get_current_user_id
 from backend.repositories import project_repo, testcase_repo
-from backend.services.llm_service import generate_playwright_code
+from backend.services.llm_service import generate_playwright_code, heal_test_case, suggest_expected_result
 from backend.services.playwright_login import (
     auth_storage_path,
     capture_login_session,
@@ -71,6 +71,17 @@ class SuggestExpectedBody(BaseModel):
 
 class SuggestExpectedResponse(BaseModel):
     suggested: str
+
+
+class HealBody(BaseModel):
+    current_code: str
+    page_snapshot: str = ""
+    error_message: str = ""
+
+
+class HealResponse(BaseModel):
+    suggested_expected: str
+    suggested_code: str
 
 
 @router.post("/{project_id}/test-cases/{test_case_id}/generate-playwright", response_model=GenerateResponse)
@@ -285,3 +296,40 @@ async def suggest_expected(
         raise map_upstream_exception("LLM error", e) from e
 
     return SuggestExpectedResponse(suggested=suggested)
+
+
+@router.post("/{project_id}/test-cases/{test_case_id}/heal", response_model=HealResponse)
+async def heal(
+    project_id: str,
+    test_case_id: str,
+    body: HealBody,
+    user_id: str = Depends(get_current_user_id),
+) -> HealResponse:
+    async with get_db() as db:
+        proj = await project_repo.get_project(db, user_id, project_id)
+        if not proj:
+            raise HTTPException(status_code=404, detail="Project not found")
+        tc = await testcase_repo.get_test_case(db, project_id, test_case_id)
+        if not tc:
+            raise HTTPException(status_code=404, detail="Test case not found")
+    settings = get_effective_settings()
+    tc_dict = {"title": tc.title, "preconditions": tc.preconditions,
+               "steps": tc.steps, "expected_result": tc.expected_result}
+    try:
+        if body.page_snapshot.strip():
+            expected, code = await heal_test_case(
+                tc_dict, body.current_code, body.page_snapshot, body.error_message, settings)
+        else:
+            # Fallback: no DOM snapshot (e.g. error before page load) → text-only heal.
+            expected = await suggest_expected_result(
+                current_expected_result=tc.expected_result,
+                actual_page_text=body.error_message,
+                error_message=body.error_message,
+                settings=settings)
+            base_url = (proj.base_url or "").strip().rstrip("/")
+            code = await generate_playwright_code(tc_dict, base_url, settings)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except Exception as e:
+        raise map_upstream_exception("LLM error", e) from e
+    return HealResponse(suggested_expected=expected, suggested_code=code)
