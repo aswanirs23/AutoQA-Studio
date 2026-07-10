@@ -473,3 +473,30 @@ async def suggest_expected_result(
     if not raw:
         raise ValueError("LLM returned an empty expected_result rewrite")
     return raw
+
+
+async def heal_test_case(
+    tc_dict: dict,
+    current_code: str,
+    page_snapshot: str,
+    error_message: str,
+    settings: Settings,
+    provider_override: str | None = None,
+    model_override: str | None = None,
+) -> tuple[str, str]:
+    """Rewrite expected_result + Playwright code from the observed page snapshot.
+    Returns (suggested_expected, suggested_code). Raises ValueError on malformed output."""
+    import json as _json
+    from backend.prompts.templates import HEAL_SYSTEM_PROMPT, build_heal_prompt
+
+    user = build_heal_prompt(tc_dict, current_code, page_snapshot, error_message)
+    raw = await _complete_json(HEAL_SYSTEM_PROMPT, user, settings, provider_override, model_override)
+    try:
+        data = _json.loads(raw)
+        expected = str(data["suggested_expected"]).strip()
+        code = str(data["suggested_code"]).strip()
+    except (ValueError, KeyError, TypeError) as e:
+        raise ValueError(f"Heal returned malformed output: {e}") from e
+    if not expected or not code:
+        raise ValueError("Heal returned an empty expected_result or code")
+    return expected, code

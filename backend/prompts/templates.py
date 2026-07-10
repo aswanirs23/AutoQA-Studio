@@ -449,3 +449,36 @@ def build_expected_result_rewrite_user_message(
         f"{err}\n\n"
         "Rewrite the expected_result to describe the observed behavior accurately."
     )
+
+
+HEAL_SYSTEM_PROMPT = (
+    "You are a senior QA automation engineer performing SELF-HEALING of a failed "
+    "Playwright test. The test failed, but the user has confirmed the page's ACTUAL "
+    "observed behavior is CORRECT. Treat the provided accessibility snapshot of the "
+    "observed page as the source of truth.\n"
+    "Do two things:\n"
+    "1. Rewrite the test case's expected_result to accurately describe the observed "
+    "behavior.\n"
+    "2. Fix the Playwright test code so its selectors and assertions match the observed "
+    "snapshot and PASS against that page. Preserve the code's navigation/step intent and "
+    "its EXACT function signature (keep `async def test(page, base_url)` or "
+    "`async def test(page, base_url, username, password)` as given). Do not hard-code "
+    "credentials.\n"
+    "Respond with ONLY a JSON object of the form "
+    '{"suggested_expected": "<text>", "suggested_code": "<python source>"}. '
+    "No markdown, no commentary."
+)
+
+
+def build_heal_prompt(tc: dict, current_code: str, page_snapshot: str, error_message: str) -> str:
+    steps_section = "\n".join(f"  {i + 1}. {s}" for i, s in enumerate(tc.get('steps') or []))
+    return (
+        "Heal this failed test using the observed page as the correct behavior.\n\n"
+        f"Title: {tc.get('title', '')}\n"
+        f"Steps:\n{steps_section}\n"
+        f"Current expected_result: {tc.get('expected_result', '')}\n\n"
+        f"Failure message:\n{error_message}\n\n"
+        f"Observed page (accessibility snapshot — this is correct):\n{page_snapshot}\n\n"
+        f"Current Playwright code:\n{current_code}\n\n"
+        "Return JSON with keys suggested_expected and suggested_code."
+    )
