@@ -60,6 +60,7 @@ class RunResponse(BaseModel):
     error_message: str | None = None
     console_log: str = ""
     duration_ms: int = 0
+    page_snapshot: str = ""
 
 
 class SuggestExpectedBody(BaseModel):
@@ -242,6 +243,7 @@ async def run_playwright(
         error_message=result.get("error_message"),
         console_log=result.get("console_log", "") or "",
         duration_ms=int(result.get("duration_ms", 0) or 0),
+        page_snapshot=result.get("page_snapshot", "") or "",
     )
 
 

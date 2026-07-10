@@ -6,7 +6,7 @@ written to a temp .py file before being run with `python <tempfile>`.
 It MUST print exactly one JSON object to stdout as its last action, of the form:
   {{"status": "passed"|"failed"|"error", "screenshot_b64": "..." or null,
    "error_message": "..." or null, "console_log": "..." or null,
-   "duration_ms": <int>}}
+   "duration_ms": <int>, "page_snapshot": "..."}}
 """
 
 import asyncio
@@ -31,6 +31,23 @@ async def _capture_screenshot(page):
         return base64.b64encode(png).decode("ascii")
     except Exception:
         return None
+
+
+async def _page_snapshot(page) -> str:
+    """Compact accessibility snapshot of the failed page for DOM-grounded healing,
+    capped to bound size.
+
+    NOTE: the legacy `page.accessibility.snapshot()` CDP-based API was removed by
+    Playwright (absent as of playwright==1.61.0, the version pinned in
+    requirements.txt); `Page` has no `accessibility` attribute anymore. We use its
+    documented replacement, `locator.aria_snapshot()`, which returns an equivalent
+    compact "role \"name\"" YAML-ish tree straight from the browser.
+    """
+    try:
+        snap = await page.locator("body").aria_snapshot()
+    except Exception:
+        return ""
+    return (snap or "").strip()[:6000]
 
 
 async def _page_context(page) -> str:
@@ -61,7 +78,7 @@ async def main():
     started = time.time()
     console_lines: list[str] = []
     result = {{"status": "error", "screenshot_b64": None, "error_message": None,
-              "console_log": "", "duration_ms": 0}}
+              "console_log": "", "duration_ms": 0, "page_snapshot": ""}}
     try:
         async with async_playwright() as pw:
             browser = await pw.chromium.launch(headless=HEADLESS)
@@ -97,12 +114,14 @@ async def main():
                         base_msg = str(e) or "Assertion failed"
                         result["error_message"] = base_msg + ("\n\n" + ctx if ctx else "")
                         result["screenshot_b64"] = await _capture_screenshot(page)
+                        result["page_snapshot"] = await _page_snapshot(page)
                     except Exception as e:
                         result["status"] = "error"
                         ctx = await _page_context(page)
                         base_msg = f"{{type(e).__name__}}: {{e}}"
                         result["error_message"] = base_msg + ("\n\n" + ctx if ctx else "")
                         result["screenshot_b64"] = await _capture_screenshot(page)
+                        result["page_snapshot"] = await _page_snapshot(page)
             finally:
                 await context.close()
                 await browser.close()
