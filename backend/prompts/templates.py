@@ -150,16 +150,20 @@ def build_generation_user_message(
         "element names, screen names, button labels, field labels, copy text, exact px sizes, "
         "hex colors, component variants, OR prototype interactions taken from that section. "
         "Generic test cases that could apply to any app are NOT acceptable.",
-        "- CRITICAL PATH FIRST. Before writing any test case, identify the single most-critical "
-        "test for this feature — the one that, if it failed, would mean the feature is broken "
-        "end-to-end. For a login feature: enter valid email + password → click Sign in → verify "
-        "user lands on the post-login state. For a checkout: select items → enter shipping → "
-        "enter payment → submit → verify order confirmation. Place this most-critical test as "
-        "the FIRST item in the output array. Then order the rest by criticality: the next "
-        "most-important user journey, then less critical journeys, then negative cases that "
-        "block critical journeys, then UI-verification tests, then edge cases last. Index 0 of "
-        "the array must be the test a QA lead would mark 'must pass before release'. Do NOT "
-        "emit test cases in random order.",
+        "- CORE WORKFLOWS FIRST (MANDATORY). Before writing anything, identify this feature's "
+        "CORE FUNCTIONAL WORKFLOWS: the primary happy path AND its main negative/failure paths "
+        "— the flows a QA lead marks 'must pass before release'. Emit ALL core workflows as the "
+        "FIRST test cases, in priority order, BEFORE ANY cosmetic, UI-detail, or edge test. "
+        "Core workflows are mandatory even when the requested count is small: if the count is "
+        "smaller than the number of core workflows, emit the core workflows and stop. Only after "
+        "every core workflow is covered may you add secondary tests (edge cases, UI/visual "
+        "verification, minor variations) to fill the remainder up to the count. "
+        "Example — a login feature's core workflows, IN THIS ORDER: "
+        "(1) enter valid credentials → click Sign in → verify the post-login state is reached; "
+        "(2) enter an invalid password → verify the error message is shown and the user stays on login; "
+        "(3) submit with empty required fields → verify validation messages appear. "
+        "Cosmetic checks (button color, logo, fonts, exact px) are SECONDARY — never index 0. "
+        "Do NOT emit test cases in random order.",
         "- Apply the PROJECT CONTEXT block above as constraint context for every test case. "
         "Any domain rules, business rules, compliance or regulatory hints in it must be "
         "reflected in preconditions, steps, or expected results when relevant.",
@@ -195,7 +199,10 @@ def build_generation_user_message(
         "appears in #D32F2F under the Email field\").",
         "- Preconditions should state required data, roles, and environment so tests are executable.",
         "- Do NOT duplicate any existing test case (compare title and steps).",
-        "- Cover happy paths, edge cases, and negative scenarios where relevant.",
+        "- Coverage order: the core functional workflows (happy + main negative/failure paths) "
+        "come first and count toward the requested total; then edge cases and UI/visual checks "
+        "fill the remainder. Do NOT pad with low-value cosmetic tests just to reach the count — "
+        "prefer additional negative/edge variations of the core flow over cosmetic checks.",
         _TYPES_ALLOWED_RULE,
     ]
     src_hint = _SOURCE_GUIDANCE.get(parsed.source_type)
@@ -242,7 +249,10 @@ SYSTEM_PROMPT = (
     "tightly grounded in the supplied DESIGN CONTEXT — referencing specific element names, "
     "screen names, labels, copy text, exact px sizes, hex colors, fonts, and component "
     "variants present in the source material. You never produce generic test cases that "
-    "could apply to any app. Every test case title begins with the word \"Verify\" and "
+    "could apply to any app. Visual precision (element names, px sizes, hex colors, fonts, "
+    "component variants) governs HOW you write each test — NOT what you prioritize: a "
+    "feature's core functional workflows come first, and purely cosmetic/visual-only checks "
+    "are secondary and must never displace them. Every test case title begins with the word \"Verify\" and "
     "names a specific element and a concrete observable behavior — never vague words like "
     "\"correctly\", \"properly\", \"works\", or \"functions correctly\". You apply "
     "project-level rules, roles, and constraints from the JSON. You respond with strict "
@@ -302,10 +312,11 @@ def build_iterate_user_message(
         "- Apply the PROJECT CONTEXT block above as constraint context for every test case. "
         "Any domain rules, business rules, compliance or regulatory hints in it must be "
         "reflected in preconditions, steps, or expected results when relevant.",
-        "- CRITICAL PATH FIRST. Order the NEW test cases you generate by criticality — index "
-        "0 of the array must be the most-critical NEW test that fulfills the instruction. "
-        "Apply the same QA-lead 'must pass before release' lens within the scope of the "
-        "instruction. Do NOT emit test cases in random order.",
+        "- CORE / CRITICAL FIRST. Order the NEW test cases by criticality — index 0 must be the "
+        "most-critical NEW test that fulfills the instruction, applying the QA-lead "
+        "'must pass before release' lens. If the instruction implies core functional workflows "
+        "not yet covered by context_test_cases, generate those before cosmetic/edge variations. "
+        "Do NOT emit test cases in random order.",
         "- The context_test_cases below already exist for this feature. Your output MUST NOT "
         "duplicate any of them. Do not repeat a title, do not repeat the same sequence of "
         "steps with cosmetic changes, and do not re-test the same exact behavior under a "
