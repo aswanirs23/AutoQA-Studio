@@ -29,6 +29,10 @@ the code actually works, plus concrete proposals for the highest-impact fixes.
 - **Non-deterministic.** Regenerating produces different cases; there is no
   generation history or diff.
 - **No coverage analysis.** No requirement → test-case coverage matrix or gap report.
+- **Core-workflow-first generation.** The generation prompt now front-loads the feature's
+  core functional workflows (happy path and main negative/failure paths) before cosmetic
+  and edge cases, ensuring critical flows aren't crowded out by visual-detail variations
+  (especially for screenshots).
 
 ## Auto-execute (Playwright)
 
