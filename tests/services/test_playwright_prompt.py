@@ -15,3 +15,16 @@ def test_non_login_mode_uses_landing_path():
         "http://x", is_login=False, landing_path="/inventory.html")
     assert "/inventory.html" in msg
     assert "async def test(page, base_url)" in msg
+
+
+def test_snapshot_injected_when_present():
+    msg = build_playwright_user_message(
+        TC, "http://x", is_login=False, landing_path="/inventory.html",
+        page_snapshot='- button "Add to cart"\n- link "Cart"')
+    assert "LIVE PAGE SNAPSHOT" in msg
+    assert 'button "Add to cart"' in msg
+
+
+def test_no_snapshot_section_when_absent():
+    msg = build_playwright_user_message(TC, "http://x", is_login=False)
+    assert "LIVE PAGE SNAPSHOT" not in msg
