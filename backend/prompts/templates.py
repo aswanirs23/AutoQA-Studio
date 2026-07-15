@@ -388,12 +388,17 @@ PLAYWRIGHT_SYSTEM_PROMPT = (
     "a descriptive message: `assert condition, 'why this should be true'`.\n"
     "- Do not use `subprocess`, `os.system`, `eval`, `exec`, `__import__`, `open(`, "
     "`requests.`, `urllib.`, `socket.`, `shutil.`, or `pathlib.Path`. The runtime will "
-    "reject any code containing those tokens."
+    "reject any code containing those tokens. "
+    "If the user message includes a LIVE PAGE SNAPSHOT, treat it as ground truth for "
+    "the landing page: use only roles/names/text that appear in it for the first "
+    "screen, and reach later screens by interacting with elements that are present "
+    "rather than guessing selectors or raw CSS classes."
 )
 
 
 def build_playwright_user_message(tc: dict, base_url: str, *, is_login: bool = False,
-                                  landing_path: str = "", has_credentials: bool = False) -> str:
+                                  landing_path: str = "", has_credentials: bool = False,
+                                  page_snapshot: str = "", authenticated: bool = False) -> str:
     """Build the user-side prompt for Playwright code generation from a test case dict."""
     steps_section = "\n".join(f"  {i + 1}. {s}" for i, s in enumerate(tc.get('steps') or []))
     header = (
@@ -406,6 +411,15 @@ def build_playwright_user_message(tc: dict, base_url: str, *, is_login: bool = F
         f"Steps:\n{steps_section}\n"
         f"Expected result: {tc.get('expected_result', '')}\n\n"
     )
+    if page_snapshot.strip():
+        body += (
+            "LIVE PAGE SNAPSHOT (accessibility tree of the landing page under test).\n"
+            "These are the REAL elements present on the first screen. Bind your "
+            "selectors to roles/names that appear here. If a step needs an element "
+            "that is NOT in this snapshot (e.g. a later screen), navigate there via "
+            "the on-screen controls that ARE here first — do not invent selectors:\n"
+            f"{page_snapshot.strip()}\n\n"
+        )
     if is_login and has_credentials:
         directive = (
             "This is a LOGIN test. Use EXACTLY this signature:\n"
@@ -418,10 +432,16 @@ def build_playwright_user_message(tc: dict, base_url: str, *, is_login: bool = F
         )
     else:
         target = f"base_url + '{landing_path}'" if landing_path else "base_url + '/'"
+        auth_note = (
+            "The browser is ALREADY authenticated via a saved session — do NOT "
+            "navigate to a login/sign-in page or add any login/sign-in steps; the page "
+            "at the target URL loads in a logged-in state. "
+        ) if authenticated else ""
         directive = (
             "Use EXACTLY this signature:\n"
             "    async def test(page, base_url):\n"
             f"Start with `await page.goto({target})` — this is the page under test. "
+            f"{auth_note}"
             "Then perform the steps and assert the expected result.\n"
             "Output ONLY the `async def test(page, base_url):` function and its body."
         )

@@ -1,0 +1,52 @@
+"""Wrapper: navigate to a page and print its accessibility snapshot as JSON.
+
+Formatted with str.format() then run in a scrubbed subprocess by
+playwright_runner.capture_page_snapshot. Prints exactly one JSON object as its
+last action: {{"snapshot": "...", "url": "...", "error": null}}.
+"""
+
+import asyncio
+import json
+import sys
+
+BASE_URL = {base_url!r}
+LANDING_PATH = {landing_path!r}
+HEADLESS = {headless!r}
+STORAGE_STATE = {storage_state!r}
+
+
+async def main():
+    from playwright.async_api import async_playwright
+    result = {{"snapshot": "", "url": "", "error": None}}
+    try:
+        async with async_playwright() as pw:
+            browser = await pw.chromium.launch(headless=HEADLESS)
+            context = await browser.new_context(
+                viewport={{"width": 1280, "height": 720}},
+                storage_state=STORAGE_STATE,
+            )
+            page = await context.new_page()
+            try:
+                await page.goto(BASE_URL + LANDING_PATH)
+                try:
+                    await page.wait_for_load_state("networkidle", timeout=8000)
+                except Exception:
+                    pass
+                try:
+                    snap = await page.locator("body").aria_snapshot()
+                except Exception:
+                    snap = ""
+                result["snapshot"] = (snap or "").strip()[:6000]
+                result["url"] = page.url
+            finally:
+                await context.close()
+                await browser.close()
+    except Exception as e:
+        result["error"] = f"{{type(e).__name__}}: {{e}}"
+    finally:
+        sys.stdout.write(json.dumps(result))
+        sys.stdout.flush()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
