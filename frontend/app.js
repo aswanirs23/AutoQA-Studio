@@ -73,16 +73,16 @@ function svgChevronDown(sizeClass = "w-4 h-4") {
   return `<svg class="${sizeClass} shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>`;
 }
 
-/** Small colored dot reflecting the last Playwright run status on a test case row. */
-function lastRunDot(status) {
-  if (!status) return "";
-  const color = status === "passed"
-    ? "var(--status-low)"
+/** Status pill for the test-case table's dedicated Status column. Shows the last
+ *  Playwright run result; a muted dash when the test has never been run. */
+function lastRunBadge(status) {
+  if (!status) return `<span class="text-xs" style="color:var(--text-muted);" title="Not run yet">—</span>`;
+  const style = status === "passed"
+    ? "background:var(--status-low-bg);color:var(--status-low);"
     : status === "failed"
-      ? "var(--status-high)"
-      : "var(--status-med)";
-  const label = `Last run: ${status}`;
-  return `<span title="${label}" aria-label="${label}" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${color};margin-right:6px;vertical-align:middle;"></span>`;
+      ? "background:var(--status-high-bg);color:var(--status-high);"
+      : "background:var(--status-med-bg);color:var(--status-med);";
+  return `<span class="text-xs px-1.5 py-0.5 rounded" style="${style}" title="Last run: ${escapeHtml(status)}">${escapeHtml(status)}</span>`;
 }
 
 // ---------------------------------------------------------------------------
@@ -651,15 +651,17 @@ function renderFeatureDetailTabBody() {
             <th class="px-4 py-2 text-left">Title</th>
             <th class="px-4 py-2 text-left w-24">Type</th>
             <th class="px-4 py-2 text-left w-24">Priority</th>
+            <th class="px-4 py-2 text-left w-24">Status</th>
           </tr>
         </thead>
         <tbody>
           ${cases.map(tc => `
             <tr class="cursor-pointer feat-detail-tc-row" style="border-top:1px solid var(--border-subtle);" data-tc-id="${escapeHtml(tc.id)}">
-              <td class="px-4 py-2 font-mono text-xs" style="color:var(--accent-text);">${lastRunDot(tc.last_run_status)}${escapeHtml(tc.id)}</td>
+              <td class="px-4 py-2 font-mono text-xs" style="color:var(--accent-text);">${escapeHtml(tc.id)}</td>
               <td class="px-4 py-2" style="color:var(--text-primary);">${escapeHtml(tc.title)}</td>
               <td class="px-4 py-2"><span class="text-xs px-1.5 py-0.5 rounded" style="background:var(--bg-surface-alt);color:var(--text-secondary);">${escapeHtml(tc.type)}</span></td>
               <td class="px-4 py-2"><span class="text-xs px-1.5 py-0.5 rounded" style="${priStyle(tc.priority)}">${escapeHtml(tc.priority)}</span></td>
+              <td class="px-4 py-2">${lastRunBadge(tc.last_run_status)}</td>
             </tr>
           `).join("")}
         </tbody>
@@ -1092,6 +1094,7 @@ function renderFeatureAccordions() {
                   <th class="px-4 py-2 text-left">Title</th>
                   <th class="px-4 py-2 text-left w-24">Type</th>
                   <th class="px-4 py-2 text-left w-24">Priority</th>
+                  <th class="px-4 py-2 text-left w-24">Status</th>
                   <th class="px-4 py-2 w-10"></th>
                 </tr>
               </thead>
@@ -1099,10 +1102,11 @@ function renderFeatureAccordions() {
                 ${featureCases.map(tc => `
                   <tr class="cursor-pointer tc-row" style="border-top:1px solid var(--border-subtle);" data-tc-id="${escapeHtml(tc.id)}">
                     <td class="px-3 py-2"><input type="checkbox" class="tc-select" data-tc-id="${escapeHtml(tc.id)}" ${selectedTcIds.has(tc.id) ? "checked" : ""} /></td>
-                    <td class="px-4 py-2 font-mono text-xs" style="color:var(--accent-text);">${lastRunDot(tc.last_run_status)}${escapeHtml(tc.id)}</td>
+                    <td class="px-4 py-2 font-mono text-xs" style="color:var(--accent-text);">${escapeHtml(tc.id)}</td>
                     <td class="px-4 py-2" style="color:var(--text-primary);">${escapeHtml(tc.title)}</td>
                     <td class="px-4 py-2"><span class="text-xs px-1.5 py-0.5 rounded" style="background:var(--bg-surface-alt);color:var(--text-secondary);">${escapeHtml(tc.type)}</span></td>
                     <td class="px-4 py-2"><span class="text-xs px-1.5 py-0.5 rounded" style="${priStyle(tc.priority)}">${escapeHtml(tc.priority)}</span></td>
+                    <td class="px-4 py-2">${lastRunBadge(tc.last_run_status)}</td>
                     <td class="px-4 py-2" style="color:var(--text-muted);"><span class="inline-flex items-center justify-center opacity-70">${svgChevronRight("w-3.5 h-3.5")}</span></td>
                   </tr>
                 `).join("")}
