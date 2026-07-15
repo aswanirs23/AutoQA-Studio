@@ -140,11 +140,11 @@ async def capture_page_snapshot(base_url: str, landing_path: str = "",
     url_ok, _ = _validate_url(base_url)
     if not url_ok:
         return ""
-    template = SNAPSHOT_WRAPPER_PATH.read_text(encoding="utf-8")
-    state = storage_state_path if (storage_state_path and Path(storage_state_path).exists()) else None
-    script = template.format(base_url=base_url, landing_path=landing_path,
-                             headless=True, storage_state=state)
     try:
+        template = SNAPSHOT_WRAPPER_PATH.read_text(encoding="utf-8")
+        state = storage_state_path if (storage_state_path and Path(storage_state_path).exists()) else None
+        script = template.format(base_url=base_url, landing_path=landing_path,
+                                 headless=True, storage_state=state)
         result = await asyncio.to_thread(_run_script_blocking, script, timeout_s)
     except Exception:
         return ""

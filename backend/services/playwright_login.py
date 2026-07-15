@@ -61,7 +61,7 @@ async def capture_login_session(auth: dict, base_url: str, project_id: str,
     Returns {"ok": bool, "screenshot_b64": str|None, "error": str|None}.
     """
     import asyncio as _asyncio
-    from backend.services.playwright_runner import _run_script_blocking, _validate_url
+    from backend.services.playwright_runner import _run_script_blocking, _validate_url, TIMEOUT_SECONDS
 
     ok_url, err = _validate_url(auth.get("login_url") or "")
     if not ok_url:
@@ -70,7 +70,7 @@ async def capture_login_session(auth: dict, base_url: str, project_id: str,
     path = auth_storage_path(project_id)
     path.parent.mkdir(parents=True, exist_ok=True)
     script = build_login_script(auth, base_url, str(path), headless)
-    result = await _asyncio.to_thread(_run_script_blocking, script)
+    result = await _asyncio.to_thread(_run_script_blocking, script, TIMEOUT_SECONDS)
     if result.get("_timeout"):
         return {"ok": False, "screenshot_b64": None, "error": "Login timed out (60s)."}
     if "ok" not in result:
