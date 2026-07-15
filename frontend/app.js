@@ -125,7 +125,7 @@ async function fetchJSON(path, opts = {}) {
   });
   const text = await r.text();
   const data = parseResponseBody(text);
-  if (r.status === 401) { el("authSection")?.classList.remove("hidden"); }
+  if (r.status === 401) { showLogin(); }
   if (!r.ok) throw new Error(formatApiError(r.status, data));
   return data;
 }
@@ -2949,29 +2949,71 @@ async function refreshUserChip() {
   } catch { chip.textContent = `Signed in${expHint}`; chip.classList.remove("hidden"); btn.classList.remove("hidden"); }
 }
 
+let authMode = "login"; // "login" | "register"
+
+function clearAuthError() {
+  const err = el("authError"); const forgot = el("authForgot");
+  if (err) { err.textContent = ""; err.classList.add("hidden"); }
+  if (forgot) forgot.classList.add("hidden");
+}
+
+function showAuthError(msg, { forgot = false } = {}) {
+  const err = el("authError");
+  if (err) { err.textContent = msg; err.classList.remove("hidden"); }
+  const f = el("authForgot");
+  if (f) f.classList.toggle("hidden", !forgot);
+}
+
+function setAuthMode(mode) {
+  authMode = mode === "register" ? "register" : "login";
+  const isReg = authMode === "register";
+  el("authTitle").textContent = isReg ? "Create account" : "Sign in";
+  el("authNameField").classList.toggle("hidden", !isReg);
+  el("btnAuthSubmit").textContent = isReg ? "Create account" : "Login";
+  el("authTogglePrompt").textContent = isReg ? "Already have an account?" : "Not registered yet?";
+  el("authToggle").textContent = isReg ? "Sign in" : "Sign up";
+  clearAuthError();
+}
+
+function showLogin() {
+  const s = el("authSection"); if (!s) return;
+  s.classList.add("lg-show");
+  setAuthMode("login");
+}
+
 async function tryRegister() {
   try {
     const res = await fetchJSON("/api/auth/register", {
-      method: "POST", body: JSON.stringify({ email: el("authEmail").value.trim(), password: el("authPassword").value, name: "User" }),
+      method: "POST", body: JSON.stringify({
+        email: el("authEmail").value.trim(),
+        password: el("authPassword").value,
+        name: el("authName").value.trim() || "User",
+      }),
     });
-    setToken(res.access_token); el("authSection").classList.add("hidden");
+    setToken(res.access_token); el("authSection").classList.remove("lg-show");
     await refreshProjects(); await refreshUserChip(); await handleRoute().catch(() => {});
-  } catch (e) { showToast(String(e.message || e), true); }
+  } catch (e) {
+    showAuthError(String(e.message || e).replace(/^Error:\s*/, ""), { forgot: false });
+  }
 }
 
 async function tryLogin() {
   try {
     const res = await fetchJSON("/api/auth/login", {
-      method: "POST", body: JSON.stringify({ email: el("authEmail").value.trim(), password: el("authPassword").value }),
+      method: "POST", body: JSON.stringify({
+        email: el("authEmail").value.trim(), password: el("authPassword").value,
+      }),
     });
-    setToken(res.access_token); el("authSection").classList.add("hidden");
+    setToken(res.access_token); el("authSection").classList.remove("lg-show");
     await refreshProjects(); await refreshUserChip(); await handleRoute().catch(() => {});
-  } catch (e) { showToast(String(e.message || e), true); }
+  } catch (e) {
+    showAuthError("Incorrect email or password.", { forgot: true });
+  }
 }
 
 function logout() {
   setToken(null); selectedTcIds.clear(); refreshUserChip();
-  el("authSection")?.classList.remove("hidden");
+  showLogin();
 }
 
 // ---------------------------------------------------------------------------
@@ -3272,9 +3314,15 @@ el("integrationsContainer")?.addEventListener("click", (ev) => {
   const tbtn = ev.target.closest("[data-test-figma-input]");
   if (tbtn) testFigmaToken(tbtn.getAttribute("data-test-figma-input"));
 });
-el("btnRegister")?.addEventListener("click", tryRegister);
-el("btnLogin")?.addEventListener("click", tryLogin);
+el("btnAuthSubmit")?.addEventListener("click", () => (authMode === "register" ? tryRegister() : tryLogin()));
+el("authToggle")?.addEventListener("click", () => setAuthMode(authMode === "register" ? "login" : "register"));
 el("btnLogout")?.addEventListener("click", logout);
+["authName", "authEmail", "authPassword"].forEach((id) =>
+  el(id)?.addEventListener("input", clearAuthError));
+["authEmail", "authPassword", "authName"].forEach((id) =>
+  el(id)?.addEventListener("keydown", (ev) => {
+    if (ev.key === "Enter") { ev.preventDefault(); authMode === "register" ? tryRegister() : tryLogin(); }
+  }));
 el("btnCancelRequest")?.addEventListener("click", () => { genAbortController?.abort(); });
 
 el("projectSwitcherBtn")?.addEventListener("click", toggleProjectSwitcherDropdown);
@@ -3436,7 +3484,7 @@ el("darkToggle")?.addEventListener("keydown", (e) => {
   iterPrefTypesWidget = mountTestTypeMultiSelect({ containerId: "iterPreferredTypes" });
   await loadParsers();
   try { await refreshProjects(); await refreshUserChip(); }
-  catch (e) { if ((e.message || "").includes("401")) el("authSection")?.classList.remove("hidden"); }
+  catch (e) { if ((e.message || "").includes("401")) showLogin(); }
   await loadInlineSettings();
   try {
     if (!window.location.hash || window.location.hash === "#") {
