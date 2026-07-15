@@ -25,18 +25,56 @@
     </div>
   </div>
 
-  <!-- Auth overlay -->
-  <section id="authSection" class="hidden fixed inset-0 z-[90] flex items-center justify-center p-4" style="background:var(--bg-header);">
-    <div class="rounded-xl p-6 max-w-md w-full shadow-lg border border-amber-300" style="background:var(--bg-surface);">
-      <h2 class="text-lg font-semibold text-amber-700 mb-3">Sign in</h2>
-      <p class="text-xs mb-3" style="color:var(--text-tertiary);">Set <code style="color:var(--text-secondary);">AUTH_DISABLED=true</code> in .env to skip login for local dev.</p>
-      <label class="text-xs" style="color:var(--text-tertiary);">Email</label>
-      <input id="authEmail" type="email" class="w-full mt-1 rounded px-3 py-2 text-sm" style="background:var(--bg-input);border:1px solid var(--border-input);color:var(--text-primary);" />
-      <label class="text-xs mt-2 block" style="color:var(--text-tertiary);">Password</label>
-      <input id="authPassword" type="password" class="w-full mt-1 rounded px-3 py-2 text-sm" style="background:var(--bg-input);border:1px solid var(--border-input);color:var(--text-primary);" />
-      <div class="flex gap-2 mt-3">
-        <button type="button" id="btnRegister" class="px-3 py-1.5 rounded text-sm" style="background:var(--btn-neutral);color:var(--btn-neutral-text);">Register</button>
-        <button type="button" id="btnLogin" class="px-3 py-1.5 rounded text-sm" style="background:var(--accent);color:var(--text-on-accent);">Login</button>
+  <!-- Auth: full-page login/register -->
+  <section id="authSection" class="hidden fixed inset-0 z-[90] flex-col" style="display:none;background:#f1f2f4;">
+    <style>
+      #authSection.lg-show { display:flex !important; }
+      #authSection .lg-topbar { display:flex; align-items:center; gap:10px; padding:16px 24px; background:#ffffff; border-bottom:1px solid #e3e5e8; }
+      #authSection .lg-brandmark { color:#1856FF; font-size:18px; line-height:1; }
+      #authSection .lg-brandname { font-weight:700; font-size:16px; color:#12212e; letter-spacing:-0.01em; }
+      #authSection .lg-body { flex:1; display:flex; align-items:center; justify-content:center; padding:24px; }
+      #authSection .lg-card { width:100%; max-width:400px; background:#ffffff; border:1px solid #e3e5e8; border-radius:12px; box-shadow:0 1px 2px rgba(18,33,46,.04),0 8px 28px rgba(18,33,46,.08); padding:32px; }
+      #authSection .lg-title { font-size:24px; font-weight:600; color:#12212e; margin:0 0 20px; text-align:center; }
+      #authSection .lg-label { display:block; font-size:13px; color:#5b6470; margin:14px 0 6px; }
+      #authSection .lg-input { width:100%; box-sizing:border-box; background:#ffffff; border:1px solid #ccd0d6; border-radius:8px; padding:10px 12px; font-size:14px; color:#12212e; outline:none; }
+      #authSection .lg-input:focus { border-color:#1856FF; box-shadow:0 0 0 3px rgba(24,86,255,.15); }
+      #authSection .lg-error { color:#d92b3b; font-size:13px; margin-top:12px; }
+      #authSection .lg-forgot { display:block; background:none; border:0; padding:0; margin-top:8px; color:#1856FF; font-size:13px; cursor:pointer; text-decoration:underline; }
+      #authSection .lg-submit { width:100%; margin-top:20px; background:#1856FF; color:#ffffff; border:0; border-radius:8px; padding:11px 16px; font-size:14px; font-weight:600; cursor:pointer; }
+      #authSection .lg-submit:hover { background:#1246d6; }
+      #authSection .lg-footer { text-align:center; margin-top:20px; font-size:13px; color:#5b6470; }
+      #authSection .lg-toggle { background:none; border:0; padding:0; color:#1856FF; font-weight:600; cursor:pointer; }
+      #authSection .lg-toggle:hover { text-decoration:underline; }
+      #authSection .hidden { display:none; }
+    </style>
+    <div class="lg-topbar">
+      <span class="lg-brandmark">&#9670;</span>
+      <span class="lg-brandname">AutoQA Studio</span>
+    </div>
+    <div class="lg-body">
+      <div class="lg-card">
+        <h2 id="authTitle" class="lg-title">Sign in</h2>
+
+        <div id="authNameField" class="hidden">
+          <label class="lg-label" for="authName">Name</label>
+          <input id="authName" type="text" class="lg-input" autocomplete="name" />
+        </div>
+
+        <label class="lg-label" for="authEmail">Email</label>
+        <input id="authEmail" type="email" class="lg-input" autocomplete="username" />
+
+        <label class="lg-label" for="authPassword">Password</label>
+        <input id="authPassword" type="password" class="lg-input" autocomplete="current-password" />
+
+        <div id="authError" class="lg-error hidden"></div>
+        <button type="button" id="authForgot" class="lg-forgot hidden">Forgot password?</button>
+
+        <button type="button" id="btnAuthSubmit" class="lg-submit">Login</button>
+
+        <div class="lg-footer">
+          <span id="authTogglePrompt">Not registered yet?</span>
+          <button type="button" id="authToggle" class="lg-toggle">Sign up</button>
+        </div>
       </div>
     </div>
   </section>
