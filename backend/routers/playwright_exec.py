@@ -265,6 +265,7 @@ async def run_playwright(
                 test_case_id,
                 result.get("status", "error"),
                 result.get("screenshot_b64"),
+                result.get("page_snapshot") or None,
             )
             # Persist the code that was actually run so edits stick and the next
             # open reuses them instead of regenerating.

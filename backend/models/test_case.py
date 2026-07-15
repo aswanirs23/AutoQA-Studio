@@ -59,6 +59,7 @@ class TestCase(BaseModel):
     last_run_status: str | None = None  # 'passed' | 'failed' | 'error' | None
     last_run_at: datetime | None = None
     last_run_screenshot_b64: str | None = None
+    last_run_page_snapshot: str | None = None  # accessibility snapshot from last run; drives self-heal availability
     playwright_code: str = ""  # cached auto-execute code; only populated by get_test_case
 
 

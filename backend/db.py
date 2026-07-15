@@ -208,6 +208,12 @@ async def migrate_schema(db: aiosqlite.Connection) -> None:
     await _ensure_column(
         db,
         "test_cases",
+        "last_run_page_snapshot",
+        "ALTER TABLE test_cases ADD COLUMN last_run_page_snapshot TEXT",
+    )
+    await _ensure_column(
+        db,
+        "test_cases",
         "playwright_code",
         "ALTER TABLE test_cases ADD COLUMN playwright_code TEXT",
     )

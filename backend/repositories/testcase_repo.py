@@ -40,7 +40,7 @@ async def list_test_cases_for_project(db: aiosqlite.Connection, project_id: str)
         """
         SELECT t.id, t.project_id, t.feature_id, t.title, t.type, t.preconditions, t.steps,
           t.expected_result, t.priority, t.hash, t.source_ref, t.created_at,
-          t.last_run_status, t.last_run_at, t.last_run_screenshot_b64,
+          t.last_run_status, t.last_run_at, t.last_run_screenshot_b64, t.last_run_page_snapshot,
           f.name AS feature_name
         FROM test_cases t
         JOIN features f ON f.id = t.feature_id
@@ -58,7 +58,7 @@ async def list_test_cases_for_feature(db: aiosqlite.Connection, project_id: str,
         """
         SELECT t.id, t.project_id, t.feature_id, t.title, t.type, t.preconditions, t.steps,
           t.expected_result, t.priority, t.hash, t.source_ref, t.created_at,
-          t.last_run_status, t.last_run_at, t.last_run_screenshot_b64,
+          t.last_run_status, t.last_run_at, t.last_run_screenshot_b64, t.last_run_page_snapshot,
           f.name AS feature_name
         FROM test_cases t
         JOIN features f ON f.id = t.feature_id
@@ -94,6 +94,11 @@ def _row_to_tc(r: aiosqlite.Row) -> TestCase:
         last_screenshot = r["last_run_screenshot_b64"] or None
     except (IndexError, KeyError):
         pass
+    last_snapshot = None
+    try:
+        last_snapshot = r["last_run_page_snapshot"] or None
+    except (IndexError, KeyError):
+        pass
     # playwright_code is only selected by get_test_case (kept out of list queries
     # to avoid shipping code blobs in every list response); tolerate its absence.
     pw_code = ""
@@ -118,6 +123,7 @@ def _row_to_tc(r: aiosqlite.Row) -> TestCase:
         last_run_status=last_status,
         last_run_at=lra,
         last_run_screenshot_b64=last_screenshot,
+        last_run_page_snapshot=last_snapshot,
         playwright_code=pw_code,
     )
 
@@ -155,7 +161,7 @@ async def list_test_cases_filtered(
         f"""
         SELECT t.id, t.project_id, t.feature_id, t.title, t.type, t.preconditions, t.steps,
           t.expected_result, t.priority, t.hash, t.source_ref, t.created_at,
-          t.last_run_status, t.last_run_at, t.last_run_screenshot_b64,
+          t.last_run_status, t.last_run_at, t.last_run_screenshot_b64, t.last_run_page_snapshot,
           f.name AS feature_name
         FROM test_cases t
         JOIN features f ON f.id = t.feature_id
@@ -246,7 +252,7 @@ async def get_test_case(
         """
         SELECT t.id, t.project_id, t.feature_id, t.title, t.type, t.preconditions, t.steps,
           t.expected_result, t.priority, t.hash, t.source_ref, t.created_at,
-          t.last_run_status, t.last_run_at, t.last_run_screenshot_b64, t.playwright_code,
+          t.last_run_status, t.last_run_at, t.last_run_screenshot_b64, t.last_run_page_snapshot, t.playwright_code,
           f.name AS feature_name
         FROM test_cases t
         JOIN features f ON f.id = t.feature_id
@@ -391,19 +397,22 @@ async def record_test_run(
     test_case_id: str,
     status: str,
     screenshot_b64: str | None,
+    page_snapshot: str | None = None,
 ) -> bool:
     """Persist the result of a Playwright run on a single test case.
 
     status is one of 'passed', 'failed', 'error'. screenshot_b64 may be None when
-    the run errored before a screenshot could be captured.
+    the run errored before a screenshot could be captured. page_snapshot is the
+    accessibility snapshot captured when the test ran against a live page — its
+    presence is what lets the self-heal button reappear after a reload.
     """
     now = datetime.now(timezone.utc).isoformat()
     cur = await db.execute(
         """
         UPDATE test_cases
-        SET last_run_status = ?, last_run_at = ?, last_run_screenshot_b64 = ?
+        SET last_run_status = ?, last_run_at = ?, last_run_screenshot_b64 = ?, last_run_page_snapshot = ?
         WHERE project_id = ? AND id = ?
         """,
-        (status, now, screenshot_b64, project_id, test_case_id),
+        (status, now, screenshot_b64, page_snapshot or None, project_id, test_case_id),
     )
     return cur.rowcount > 0

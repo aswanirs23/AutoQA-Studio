@@ -1279,6 +1279,22 @@ async function openAutoExecModal() {
   el("autoExecLoginTest").checked = false;
   el("autoExecModal")?.classList.remove("hidden");
 
+  // Rehydrate the last persisted run so its status chip, screenshot, and — when the
+  // run diverged against a live page — the self-heal button survive a reload/reopen.
+  // error_message/console_log aren't persisted; the page_snapshot is what self-heal
+  // actually consumes, so the button stays functional.
+  if (tc.last_run_status) {
+    el("autoExecResult").classList.remove("hidden");
+    renderAutoExecResult({
+      status: tc.last_run_status,
+      screenshot_b64: tc.last_run_screenshot_b64 || null,
+      error_message: "",
+      console_log: "",
+      duration_ms: 0,
+      page_snapshot: tc.last_run_page_snapshot || "",
+    });
+  }
+
   // Load code: the backend returns previously stored code without an LLM call,
   // and only generates (once) when nothing is stored yet.
   setAutoExecGenerating(true);
@@ -1369,6 +1385,8 @@ async function runAutoExec() {
       if (tc) {
         tc.last_run_status = resp.status;
         tc.last_run_at = new Date().toISOString();
+        tc.last_run_screenshot_b64 = resp.screenshot_b64 || null;
+        tc.last_run_page_snapshot = resp.page_snapshot || "";
         tc.playwright_code = code;  // backend persists the run code; keep cache in sync
         renderFeatureAccordions();
       }
@@ -1410,9 +1428,12 @@ function renderAutoExecResult(resp) {
       ${consoleBlock}
     </div>`;
 
-  // When the run failed (assertion mismatch), offer to adapt the expected_result.
-  // Hidden for `passed` (no need) and `error` (runner-level crash, not a divergence).
-  if (status === "failed") {
+  // When a run diverged against a live page, offer to adapt the expected_result.
+  // "failed" = assertion mismatch. "error" with a page_snapshot = the test ran but
+  // threw (e.g. a Playwright locator timeout) — still a healable divergence.
+  // Hidden for `passed` (no need) and for `error` WITHOUT a snapshot (pre-run
+  // rejection or runner crash — bad URL, denylist, timeout — nothing to heal).
+  if (status === "failed" || (status === "error" && resp.page_snapshot)) {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.id = "btnMarkAsExpected";
@@ -1566,8 +1587,9 @@ async function saveAndRerunAdaptedExpected() {
       { method: "POST", body: JSON.stringify({ code: codeToRun, headless: !el("autoExecHeaded")?.checked, logged_out: !!el("autoExecLoginTest")?.checked }) },
     );
     renderAutoExecResult(resp);
-    // If still FAILED after adapt, show inline "still failed" note
-    if (resp.status === "failed" && resultEl) {
+    // If it still diverged against a live page after adapt (assertion mismatch, or a
+    // locator error that still captured a snapshot), show the inline "still failed" note.
+    if ((resp.status === "failed" || (resp.status === "error" && resp.page_snapshot)) && resultEl) {
       const note = document.createElement("div");
       note.className = "rounded-lg p-3 text-xs mt-3";
       note.style.cssText = "background:var(--status-med-bg);color:var(--status-med);border:1px solid var(--status-med);";
@@ -1580,6 +1602,8 @@ async function saveAndRerunAdaptedExpected() {
       if (tc) {
         tc.last_run_status = resp.status;
         tc.last_run_at = new Date().toISOString();
+        tc.last_run_screenshot_b64 = resp.screenshot_b64 || null;
+        tc.last_run_page_snapshot = resp.page_snapshot || "";
         renderFeatureAccordions();
       }
     }
