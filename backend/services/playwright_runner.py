@@ -25,6 +25,7 @@ DENYLIST = re.compile(
 )
 
 WRAPPER_PATH = Path(__file__).with_name("playwright_runner_wrapper.py.tmpl")
+SNAPSHOT_WRAPPER_PATH = Path(__file__).with_name("playwright_snapshot_wrapper.py.tmpl")
 TIMEOUT_SECONDS = 60.0
 
 
@@ -46,7 +47,7 @@ def _check_denylist(code: str) -> str | None:
     return m.group(1) if m else None
 
 
-def _run_script_blocking(script: str) -> dict:
+def _run_script_blocking(script: str, timeout_s: float = TIMEOUT_SECONDS) -> dict:
     """Write `script` to a temp file, run it in a scrubbed subprocess, return the
     parsed JSON dict it prints (or a structured error dict)."""
     # Inherit the parent environment, then scrub anything that looks like a
@@ -72,7 +73,7 @@ def _run_script_blocking(script: str) -> dict:
         try:
             proc = subprocess.run([sys.executable, str(script_path)],
                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                                  env=env, timeout=TIMEOUT_SECONDS)
+                                  env=env, timeout=timeout_s)
             stdout, stderr, timed_out = proc.stdout or b"", proc.stderr or b"", False
         except subprocess.TimeoutExpired as e:
             stdout, stderr, timed_out = (e.stdout or b""), (e.stderr or b""), True
@@ -115,7 +116,7 @@ async def run_playwright_code(code: str, base_url: str, headless: bool,
     script = template.format(user_code=code, base_url=base_url, headless=headless,
                              storage_state=state, username=username, password=password)
 
-    result = await asyncio.to_thread(_run_script_blocking, script)
+    result = await asyncio.to_thread(_run_script_blocking, script, TIMEOUT_SECONDS)
     if result.get("_timeout"):
         return {"status": "error", "screenshot_b64": None,
                 "error_message": f"Timeout ({int(TIMEOUT_SECONDS)}s)",
@@ -125,3 +126,28 @@ async def run_playwright_code(code: str, base_url: str, headless: bool,
                 "error_message": f"Runner produced unparsable output: {result.get('_parse_error','no status')}",
                 "console_log": result.get("_stderr", ""), "duration_ms": 0}
     return result
+
+
+async def capture_page_snapshot(base_url: str, landing_path: str = "",
+                                storage_state_path: str | None = None,
+                                timeout_s: float = 20.0) -> str:
+    """Navigate to base_url+landing_path in a sandboxed browser and return its
+    compact accessibility snapshot (<=6000 chars), or "" on any failure.
+
+    Never raises: a bad URL, launch error, timeout, or empty page all yield "".
+    Reuses the project's saved login storage_state so authed pages snapshot too.
+    """
+    url_ok, _ = _validate_url(base_url)
+    if not url_ok:
+        return ""
+    template = SNAPSHOT_WRAPPER_PATH.read_text(encoding="utf-8")
+    state = storage_state_path if (storage_state_path and Path(storage_state_path).exists()) else None
+    script = template.format(base_url=base_url, landing_path=landing_path,
+                             headless=True, storage_state=state)
+    try:
+        result = await asyncio.to_thread(_run_script_blocking, script, timeout_s)
+    except Exception:
+        return ""
+    if not isinstance(result, dict) or result.get("_timeout") or result.get("error"):
+        return ""
+    return result.get("snapshot", "") or ""

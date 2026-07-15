@@ -39,3 +39,16 @@ async def test_passed_run_has_empty_snapshot(server):
     res = await run_playwright_code(code, server, headless=True)
     assert res["status"] == "passed"
     assert res.get("page_snapshot", "") == ""
+
+
+async def test_capture_page_snapshot_returns_live_snapshot(server):
+    from backend.services.playwright_runner import capture_page_snapshot
+    snap = await capture_page_snapshot(server, "/", None)
+    assert snap, "expected a non-empty snapshot"
+    assert "Open Menu" in snap or "Dashboard" in snap, snap
+
+
+async def test_capture_page_snapshot_bad_url_returns_empty():
+    from backend.services.playwright_runner import capture_page_snapshot
+    snap = await capture_page_snapshot("not-a-url", "/", None)
+    assert snap == ""
