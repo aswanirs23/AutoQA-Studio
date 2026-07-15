@@ -19,7 +19,8 @@ from backend.services.playwright_login import (
     looks_like_login_page,
     resolve_landing_path,
 )
-from backend.services.playwright_runner import run_playwright_code
+from backend.services.playwright_runner import run_playwright_code, capture_page_snapshot
+from backend.services.snapshot_cache import get_cached_snapshot, set_cached_snapshot
 from backend.services.upstream_errors import map_upstream_exception
 
 logger = logging.getLogger(__name__)
@@ -84,6 +85,24 @@ class HealResponse(BaseModel):
     suggested_code: str
 
 
+async def _ground_snapshot(project_id: str, base_url: str, landing_path: str) -> str:
+    """Return a live-page snapshot for grounding, using the cache and never raising.
+
+    Any capture failure degrades to "" so generation falls back to text-only.
+    """
+    cached = get_cached_snapshot(base_url, landing_path)
+    if cached is not None:
+        return cached
+    try:
+        storage = str(auth_storage_path(project_id))
+        snap = await capture_page_snapshot(base_url, landing_path, storage)
+    except Exception:
+        logger.exception("snapshot capture failed for project=%s", project_id)
+        snap = ""
+    set_cached_snapshot(base_url, landing_path, snap)
+    return snap
+
+
 @router.post("/{project_id}/test-cases/{test_case_id}/generate-playwright", response_model=GenerateResponse)
 async def generate_playwright(
     project_id: str,
@@ -125,10 +144,15 @@ async def generate_playwright(
     is_login = body.login_mode if body.login_mode is not None else is_login_test(tc.title, tc.steps)
     landing_path = resolve_landing_path(auth)
     has_creds = bool(auth.get("username") and auth.get("password"))
+    # Ground selectors in the real landing page (cached, never fatal). Login
+    # tests start logged-out, so grounding a pre-login snapshot would mislead —
+    # skip it for those and let the text-only login directive drive.
+    page_snapshot = "" if is_login else await _ground_snapshot(project_id, base_url, landing_path)
     try:
         code = await generate_playwright_code(
             tc_dict, base_url, settings,
             is_login=is_login, landing_path=landing_path, has_credentials=has_creds,
+            page_snapshot=page_snapshot,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
