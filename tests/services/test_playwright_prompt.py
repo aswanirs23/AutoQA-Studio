@@ -78,3 +78,15 @@ async def test_generate_forwards_snapshot_to_prompt(monkeypatch):
         "http://x", settings, page_snapshot="- button \"Buy\"")
     assert "async def test" in code
     assert captured.get("page_snapshot") == '- button "Buy"'
+
+
+def test_authenticated_directive_present_when_authenticated():
+    msg = build_playwright_user_message(
+        TC, "http://x", is_login=False, landing_path="/inventory.html", authenticated=True)
+    assert "ALREADY authenticated" in msg
+    assert "do NOT" in msg and "login" in msg.lower()
+
+
+def test_no_authenticated_directive_by_default():
+    msg = build_playwright_user_message(TC, "http://x", is_login=False, landing_path="/inventory.html")
+    assert "ALREADY authenticated" not in msg

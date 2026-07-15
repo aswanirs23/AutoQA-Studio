@@ -148,11 +148,12 @@ async def generate_playwright(
     # tests start logged-out, so grounding a pre-login snapshot would mislead —
     # skip it for those and let the text-only login directive drive.
     page_snapshot = "" if is_login else await _ground_snapshot(project_id, base_url, landing_path)
+    authenticated = (not is_login) and auth_storage_path(project_id).exists()
     try:
         code = await generate_playwright_code(
             tc_dict, base_url, settings,
             is_login=is_login, landing_path=landing_path, has_credentials=has_creds,
-            page_snapshot=page_snapshot,
+            page_snapshot=page_snapshot, authenticated=authenticated,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
