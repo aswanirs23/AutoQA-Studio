@@ -2980,13 +2980,13 @@ async function refreshUserChip() {
 let authMode = "login"; // "login" | "register"
 
 function clearAuthError() {
-  const err = el("authError"); const forgot = el("authForgot");
+  const err = el("authFormError"); const forgot = el("authForgot");
   if (err) { err.textContent = ""; err.classList.add("hidden"); }
   if (forgot) forgot.classList.add("hidden");
 }
 
 function showAuthError(msg, { forgot = false } = {}) {
-  const err = el("authError");
+  const err = el("authFormError");
   if (err) { err.textContent = msg; err.classList.remove("hidden"); }
   const f = el("authForgot");
   if (f) f.classList.toggle("hidden", !forgot);
