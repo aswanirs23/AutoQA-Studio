@@ -91,15 +91,6 @@ function lastRunDot(status) {
 function getToken() { return localStorage.getItem(TOKEN_KEY); }
 function setToken(t) { t ? localStorage.setItem(TOKEN_KEY, t) : localStorage.removeItem(TOKEN_KEY); }
 function authHeaders() { const t = getToken(); return t ? { Authorization: `Bearer ${t}` } : {}; }
-function parseJwtPayload(token) {
-  try { const p = token.split("."); return p.length < 2 ? null : JSON.parse(atob(p[1].replace(/-/g, "+").replace(/_/g, "/"))); } catch { return null; }
-}
-function formatTokenExpiry(token) {
-  const p = parseJwtPayload(token);
-  if (!p || p.exp == null) return "";
-  if (Date.now() >= p.exp * 1000) return " (expired)";
-  return ` · session until ${formatIST(new Date(p.exp * 1000).toISOString())}`;
-}
 
 // ---------------------------------------------------------------------------
 // HTTP helpers
@@ -2936,17 +2927,35 @@ async function loadDashboard() {
 // ---------------------------------------------------------------------------
 // Auth UI
 // ---------------------------------------------------------------------------
+function userInitials(name, email) {
+  const parts = (name || "").trim().split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  const e = (email || "").trim();
+  return e ? e[0].toUpperCase() : "?";
+}
+
+function closeUserMenu() {
+  el("userMenu")?.classList.add("hidden");
+  el("userAvatar")?.setAttribute("aria-expanded", "false");
+}
+
 async function refreshUserChip() {
-  const chip = el("userChip"); const btn = el("btnLogout");
+  const wrap = el("userMenuWrap"); const avatar = el("userAvatar");
   const tok = getToken();
-  if (!chip || !btn) return;
-  if (!tok) { chip.classList.add("hidden"); btn.classList.add("hidden"); chip.textContent = ""; return; }
-  const expHint = formatTokenExpiry(tok);
+  if (!wrap || !avatar) return;
+  if (!tok) { wrap.classList.add("hidden"); closeUserMenu(); return; }
+  let name = "User", email = "";
   try {
     const u = await fetchJSON("/api/auth/me");
-    chip.textContent = `${u.name || "User"} (${u.email})${expHint}`;
-    chip.classList.remove("hidden"); btn.classList.remove("hidden");
-  } catch { chip.textContent = `Signed in${expHint}`; chip.classList.remove("hidden"); btn.classList.remove("hidden"); }
+    name = u.name || "User"; email = u.email || "";
+  } catch { name = "User"; email = ""; }
+  avatar.textContent = userInitials(name, email);
+  avatar.setAttribute("title", email ? `${name} (${email})` : name);
+  const nameEl = el("userMenuName"); const emailEl = el("userMenuEmail");
+  if (nameEl) nameEl.textContent = name;
+  if (emailEl) emailEl.textContent = email;
+  wrap.classList.remove("hidden");
 }
 
 let authMode = "login"; // "login" | "register"
@@ -3317,6 +3326,16 @@ el("integrationsContainer")?.addEventListener("click", (ev) => {
 el("btnAuthSubmit")?.addEventListener("click", () => (authMode === "register" ? tryRegister() : tryLogin()));
 el("authToggle")?.addEventListener("click", () => setAuthMode(authMode === "register" ? "login" : "register"));
 el("btnLogout")?.addEventListener("click", logout);
+el("userAvatar")?.addEventListener("click", (e) => {
+  e.stopPropagation();
+  const hidden = el("userMenu")?.classList.toggle("hidden");
+  el("userAvatar")?.setAttribute("aria-expanded", hidden ? "false" : "true");
+});
+document.addEventListener("click", (e) => {
+  const wrap = el("userMenuWrap");
+  if (wrap && !wrap.contains(e.target)) closeUserMenu();
+});
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeUserMenu(); });
 ["authName", "authEmail", "authPassword"].forEach((id) =>
   el(id)?.addEventListener("input", clearAuthError));
 ["authEmail", "authPassword", "authName"].forEach((id) =>

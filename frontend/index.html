@@ -455,8 +455,19 @@
             <span class="dark-toggle-knob"></span>
           </span>
         </label>
-        <span id="userChip" class="hidden max-w-[140px] sm:max-w-[200px] truncate text-xs" style="color:var(--text-tertiary);"></span>
-        <button type="button" id="btnLogout" class="hidden text-xs text-amber-600 hover:underline">Log out</button>
+        <div id="userMenuWrap" class="hidden" style="position:relative;">
+          <button type="button" id="userAvatar" aria-haspopup="menu" aria-expanded="false" title=""
+            style="width:32px;height:32px;border-radius:9999px;display:flex;align-items:center;justify-content:center;background:var(--accent);color:var(--text-on-accent);font-size:12px;font-weight:600;line-height:1;cursor:pointer;border:0;"></button>
+          <div id="userMenu" class="hidden" role="menu"
+            style="position:absolute;right:0;top:100%;margin-top:8px;min-width:210px;z-index:70;background:var(--bg-surface);border:1px solid var(--border-default);border-radius:10px;box-shadow:0 8px 28px rgba(0,0,0,.18);overflow:hidden;">
+            <div style="padding:10px 12px;border-bottom:1px solid var(--border-default);">
+              <div id="userMenuName" class="truncate" style="font-size:14px;font-weight:600;color:var(--text-primary);"></div>
+              <div id="userMenuEmail" class="truncate" style="font-size:12px;color:var(--text-tertiary);margin-top:2px;"></div>
+            </div>
+            <button type="button" id="btnLogout" role="menuitem"
+              style="display:block;width:100%;text-align:left;padding:10px 12px;font-size:14px;color:#d97706;background:none;border:0;cursor:pointer;">Log out</button>
+          </div>
+        </div>
       </div>
     </div>
   </header>
