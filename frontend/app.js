@@ -909,10 +909,22 @@ function initOverviewSections() {
 // ---------------------------------------------------------------------------
 // Login setup (authenticated auto-execute)
 // ---------------------------------------------------------------------------
+let authSavedUsername = "";
+
+function maskUsername(name) {
+  const n = (name || "").trim();
+  return n.length <= 3 ? n : n.slice(0, 3) + "*".repeat(n.length - 3);
+}
+
 function renderAuthConfig(cfg) {
+  authSavedUsername = cfg.username || "";
   el("authLoginUrl").value = cfg.login_url || "";
-  el("authUsername").value = cfg.username || "";
-  el("authLoginPassword").value = "";
+  const userInput = el("authUsername");
+  userInput.value = "";
+  userInput.placeholder = authSavedUsername ? `${maskUsername(authSavedUsername)} — leave blank to keep` : "Username / email";
+  const pwInput = el("authLoginPassword");
+  pwInput.value = "";
+  pwInput.placeholder = cfg.password_set ? "******** — leave blank to keep" : "Password";
   const status = el("authStatus");
   if (cfg.last_error) status.textContent = "Last attempt failed";
   else if (cfg.verified_at) status.textContent = "Session saved · verified";
@@ -922,9 +934,10 @@ function renderAuthConfig(cfg) {
 
 function _authBody() {
   const pw = el("authLoginPassword").value;
+  const typedUser = el("authUsername").value.trim();
   const body = {
     login_url: el("authLoginUrl").value.trim(),
-    username: el("authUsername").value.trim(),
+    username: typedUser || authSavedUsername,
   };
   if (pw) body.password = pw;
   return body;
