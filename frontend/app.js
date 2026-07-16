@@ -913,12 +913,6 @@ function renderAuthConfig(cfg) {
   el("authLoginUrl").value = cfg.login_url || "";
   el("authUsername").value = cfg.username || "";
   el("authLoginPassword").value = "";
-  el("authSuccessCheck").value = cfg.success_check || "";
-  el("authHomePath").value = cfg.home_path || "";
-  const sel = cfg.selectors || {};
-  el("authSelUser").value = sel.username || "";
-  el("authSelPass").value = sel.password || "";
-  el("authSelSubmit").value = sel.submit || "";
   const status = el("authStatus");
   if (cfg.last_error) status.textContent = "Last attempt failed";
   else if (cfg.verified_at) status.textContent = "Session saved · verified";
@@ -931,13 +925,6 @@ function _authBody() {
   const body = {
     login_url: el("authLoginUrl").value.trim(),
     username: el("authUsername").value.trim(),
-    success_check: el("authSuccessCheck").value.trim(),
-    home_path: el("authHomePath").value.trim(),
-    selectors: {
-      username: el("authSelUser").value.trim(),
-      password: el("authSelPass").value.trim(),
-      submit: el("authSelSubmit").value.trim(),
-    },
   };
   if (pw) body.password = pw;
   return body;

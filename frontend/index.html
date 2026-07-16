@@ -570,17 +570,7 @@
             <input id="authLoginUrl" type="url" placeholder="Login URL (e.g. https://app/login)" class="text-sm rounded px-3 py-2" style="background:var(--bg-input);border:1px solid var(--border-input);color:var(--text-primary);" />
             <input id="authUsername" type="text" placeholder="Username / email" class="text-sm rounded px-3 py-2" style="background:var(--bg-input);border:1px solid var(--border-input);color:var(--text-primary);" />
             <input id="authLoginPassword" type="password" placeholder="Password (leave blank to keep)" class="text-sm rounded px-3 py-2" style="background:var(--bg-input);border:1px solid var(--border-input);color:var(--text-primary);" />
-            <input id="authSuccessCheck" type="text" placeholder="Success check (path or text, optional)" class="text-sm rounded px-3 py-2" style="background:var(--bg-input);border:1px solid var(--border-input);color:var(--text-primary);" />
-            <input id="authHomePath" type="text" placeholder="App home path after login (e.g. /inventory.html, optional)" class="text-sm rounded px-3 py-2" style="background:var(--bg-input);border:1px solid var(--border-input);color:var(--text-primary);" />
           </div>
-          <details class="mt-2">
-            <summary class="text-xs cursor-pointer" style="color:var(--text-tertiary);">Advanced — selector overrides</summary>
-            <div class="grid gap-2 sm:grid-cols-3 mt-2">
-              <input id="authSelUser" type="text" placeholder="Username selector" class="text-xs rounded px-2 py-1.5" style="background:var(--bg-input);border:1px solid var(--border-input);color:var(--text-primary);" />
-              <input id="authSelPass" type="text" placeholder="Password selector" class="text-xs rounded px-2 py-1.5" style="background:var(--bg-input);border:1px solid var(--border-input);color:var(--text-primary);" />
-              <input id="authSelSubmit" type="text" placeholder="Submit selector" class="text-xs rounded px-2 py-1.5" style="background:var(--bg-input);border:1px solid var(--border-input);color:var(--text-primary);" />
-            </div>
-          </details>
           <div class="flex items-center gap-2 mt-3">
             <button type="button" id="btnSaveAuth" class="text-sm px-3 py-1.5 rounded font-medium" style="background:var(--btn-neutral);color:var(--btn-neutral-text);border:1px solid var(--border-input);">Save</button>
             <button type="button" id="btnVerifyAuth" class="text-sm px-3 py-1.5 rounded font-medium" style="background:var(--accent);color:var(--text-on-accent);">Test login &amp; save session</button>
