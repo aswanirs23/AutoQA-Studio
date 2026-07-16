@@ -38,6 +38,24 @@ def test_put_auth_without_password_keeps_existing(client):
     assert got["login_url"] == "http://x/login2"
 
 
+def test_put_auth_without_selectors_or_success_check_keeps_existing(client):
+    """The simplified 3-field Login setup form omits selectors/success_check.
+    Saving must NOT wipe values that were previously stored (regression guard).
+    """
+    pid = _new_project(client)
+    client.put(f"/api/projects/{pid}/auth", json={
+        "login_url": "http://x/login", "username": "bob", "password": "s3cret",
+        "selectors": {"username": "#u", "password": "#p", "submit": "#go"},
+        "success_check": "/dashboard"})
+    # second save omits selectors + success_check -> keep the stored ones
+    client.put(f"/api/projects/{pid}/auth", json={
+        "login_url": "http://x/login2", "username": "bob"})
+    got = client.get(f"/api/projects/{pid}").json()["project"]["auth_config"]
+    assert got["selectors"] == {"username": "#u", "password": "#p", "submit": "#go"}
+    assert got["success_check"] == "/dashboard"
+    assert got["login_url"] == "http://x/login2"
+
+
 def test_update_project_and_context_do_not_leak_password(client):
     """Regression for C1: PUT /{id} and PUT /{id}/context must mask auth_config
     exactly like GET does. Before the fix, both endpoints returned the raw
